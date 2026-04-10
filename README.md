@@ -1,6 +1,6 @@
-# @spekoai/sdk-typescript
+# @spekoai/sdk
 
-Official Node.js SDK for the [SpekoAI](https://spekoai.com) voice AI gateway.
+Official Node.js SDK for the [SpekoAI](https://speko.ai) voice AI gateway.
 
 SpekoAI is a voice AI gateway that runs the STT → LLM → TTS pipeline so you
 don't need to juggle separate API keys, credentials, and SDKs for each
@@ -10,17 +10,17 @@ LiveKit tokens, and managing pipeline configuration.
 ## Installation
 
 ```bash
-npm install @spekoai/sdk-typescript
+npm install @spekoai/sdk
 # or
-pnpm add @spekoai/sdk-typescript
+pnpm add @spekoai/sdk
 # or
-bun add @spekoai/sdk-typescript
+bun add @spekoai/sdk
 ```
 
 ## Quickstart
 
 ```ts
-import { SpekoAI } from '@spekoai/sdk-typescript';
+import { SpekoAI } from '@spekoai/sdk';
 
 const client = new SpekoAI({ apiKey: process.env.SPEKOAI_API_KEY });
 
@@ -38,7 +38,7 @@ console.log('Token:', session.token);
 
 ## Documentation
 
-Full API reference and guides: <https://docs.spekoai.com>
+Full API reference and guides: <https://docs.speko.dev/typescript-sdk>
 
 ## Contributing
 
