@@ -1,0 +1,28 @@
+{
+  "name": "@spekoai/sdk-typescript",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/sdk-typescript/src",
+  "tags": ["scope:public", "type:sdk", "lang:ts"],
+  "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/sdk-typescript",
+        "command": "eslint src --max-warnings=0"
+      }
+    },
+    "build-publish": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/sdk-typescript",
+        "command": "tsc -p tsconfig.publish.json"
+      }
+    },
+    "nx-release-publish": {
+      "options": {
+        "packageRoot": "packages/sdk-typescript"
+      }
+    }
+  }
+}
