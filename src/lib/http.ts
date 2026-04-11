@@ -25,17 +25,21 @@ export class HttpClient {
     this.timeout = options.timeout;
   }
 
-  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    externalSignal?: AbortSignal,
+  ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeout);
+    const { signal, cleanup } = this.buildSignal(externalSignal);
 
     try {
       const response = await fetch(url, {
         method,
         headers: this.jsonHeaders,
         body: body ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
+        signal,
       });
 
       if (!response.ok) {
@@ -44,20 +48,24 @@ export class HttpClient {
 
       return (await response.json()) as T;
     } finally {
-      clearTimeout(timer);
+      cleanup();
     }
   }
 
-  async get<T>(path: string): Promise<T> {
-    return this.request<T>('GET', path);
+  async get<T>(path: string, externalSignal?: AbortSignal): Promise<T> {
+    return this.request<T>('GET', path, undefined, externalSignal);
   }
 
-  async post<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>('POST', path, body);
+  async post<T>(
+    path: string,
+    body: unknown,
+    externalSignal?: AbortSignal,
+  ): Promise<T> {
+    return this.request<T>('POST', path, body, externalSignal);
   }
 
-  async delete<T>(path: string): Promise<T> {
-    return this.request<T>('DELETE', path);
+  async delete<T>(path: string, externalSignal?: AbortSignal): Promise<T> {
+    return this.request<T>('DELETE', path, undefined, externalSignal);
   }
 
   /**
@@ -69,10 +77,10 @@ export class HttpClient {
     path: string,
     bodyBytes: Uint8Array,
     extraHeaders: Record<string, string>,
+    externalSignal?: AbortSignal,
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeout);
+    const { signal, cleanup } = this.buildSignal(externalSignal);
 
     try {
       const headers: Record<string, string> = {
@@ -85,7 +93,7 @@ export class HttpClient {
         method,
         headers,
         body: bodyBytes,
-        signal: controller.signal,
+        signal,
       });
 
       if (!response.ok) {
@@ -94,7 +102,7 @@ export class HttpClient {
 
       return (await response.json()) as T;
     } finally {
-      clearTimeout(timer);
+      cleanup();
     }
   }
 
@@ -107,17 +115,17 @@ export class HttpClient {
     method: string,
     path: string,
     body: unknown,
+    externalSignal?: AbortSignal,
   ): Promise<{ bytes: Uint8Array; headers: Record<string, string> }> {
     const url = `${this.baseUrl}${path}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeout);
+    const { signal, cleanup } = this.buildSignal(externalSignal);
 
     try {
       const response = await fetch(url, {
         method,
         headers: this.jsonHeaders,
         body: body ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
+        signal,
       });
 
       if (!response.ok) {
@@ -132,8 +140,42 @@ export class HttpClient {
 
       return { bytes: new Uint8Array(buffer), headers };
     } finally {
-      clearTimeout(timer);
+      cleanup();
     }
+  }
+
+  /**
+   * Compose the internal timeout signal with an optional external signal so
+   * that callers can cancel in-flight requests (e.g. LiveKit Agents tearing
+   * down a session) while still enforcing the client's configured timeout.
+   */
+  private buildSignal(externalSignal?: AbortSignal): {
+    signal: AbortSignal;
+    cleanup: () => void;
+  } {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeout);
+
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        controller.abort(externalSignal.reason);
+      } else {
+        const onAbort = () => controller.abort(externalSignal.reason);
+        externalSignal.addEventListener('abort', onAbort, { once: true });
+        return {
+          signal: controller.signal,
+          cleanup: () => {
+            clearTimeout(timer);
+            externalSignal.removeEventListener('abort', onAbort);
+          },
+        };
+      }
+    }
+
+    return {
+      signal: controller.signal,
+      cleanup: () => clearTimeout(timer),
+    };
   }
 
   private async handleError(response: Response): Promise<never> {

@@ -23,6 +23,7 @@ export class Transcribe {
   async call(
     audio: Uint8Array,
     options: TranscribeOptions,
+    abortSignal?: AbortSignal,
   ): Promise<TranscribeResult> {
     const intent = {
       language: options.language,
@@ -38,6 +39,7 @@ export class Transcribe {
         'Content-Type': options.contentType ?? 'audio/wav',
         'X-Speko-Intent': JSON.stringify(intent),
       },
+      abortSignal,
     );
   }
 }

@@ -16,7 +16,10 @@ export class Complete {
    * });
    * ```
    */
-  async call(params: CompleteParams): Promise<CompleteResult> {
-    return this.http.post<CompleteResult>('/v1/complete', params);
+  async call(
+    params: CompleteParams,
+    abortSignal?: AbortSignal,
+  ): Promise<CompleteResult> {
+    return this.http.post<CompleteResult>('/v1/complete', params, abortSignal);
   }
 }
