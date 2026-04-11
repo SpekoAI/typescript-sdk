@@ -1,44 +1,53 @@
-# @spekoai/sdk
+# @speko/sdk
 
-Official Node.js SDK for the [SpekoAI](https://speko.ai) voice AI gateway.
+Official TypeScript SDK for [Speko](https://speko.ai) — one API, every voice provider.
 
-SpekoAI is a voice AI gateway that runs the STT → LLM → TTS pipeline so you
-don't need to juggle separate API keys, credentials, and SDKs for each
-provider. This SDK is the Node.js client for creating voice sessions, issuing
-LiveKit tokens, and managing pipeline configuration.
+Speko is a voice AI gateway that benchmarks every STT, LLM, and TTS provider
+across languages and verticals, then routes each request to the best provider
+in real time. Failover is handled. You write one integration; Speko picks the
+right provider for every call.
 
 ## Installation
 
 ```bash
-npm install @spekoai/sdk
+npm install @speko/sdk
 # or
-pnpm add @spekoai/sdk
+pnpm add @speko/sdk
 # or
-bun add @spekoai/sdk
+bun add @speko/sdk
 ```
 
 ## Quickstart
 
 ```ts
-import { SpekoAI } from '@spekoai/sdk';
+import { Speko } from '@speko/sdk';
+import { readFile } from 'node:fs/promises';
 
-const client = new SpekoAI({ apiKey: process.env.SPEKOAI_API_KEY });
+const speko = new Speko({ apiKey: process.env.SPEKO_API_KEY });
 
-const session = await client.sessions.create({
-  pipeline: {
-    stt: { provider: 'deepgram', model: 'nova-3' },
-    llm: { provider: 'anthropic', model: 'claude-opus-4-6' },
-    tts: { provider: 'elevenlabs', voiceId: 'rachel' },
-  },
+// Transcribe — best STT provider auto-routed for your language + vertical
+const audio = await readFile('./call.wav');
+const { text, provider, confidence } = await speko.transcribe(audio, {
+  language: 'es-MX',
+  vertical: 'healthcare',
 });
 
-console.log('LiveKit URL:', session.livekitUrl);
-console.log('Token:', session.token);
+// Synthesize — best TTS provider auto-routed
+const speech = await speko.synthesize('Hello world', {
+  language: 'en',
+  vertical: 'general',
+});
+
+// Complete — best LLM provider auto-routed
+const { text: reply } = await speko.complete({
+  messages: [{ role: 'user', content: 'Hi!' }],
+  intent: { language: 'en', vertical: 'general' },
+});
 ```
 
 ## Documentation
 
-Full API reference and guides: <https://docs.speko.dev/typescript-sdk>
+Full API reference and guides: <https://docs.speko.ai>
 
 ## Contributing
 

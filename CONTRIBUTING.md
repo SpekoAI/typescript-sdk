@@ -1,4 +1,4 @@
-# Contributing to `@spekoai/sdk-typescript`
+# Contributing to `@speko/sdk`
 
 Thanks for your interest in contributing! PRs and issues are welcome on this
 repository.

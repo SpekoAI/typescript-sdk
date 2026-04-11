@@ -1,8 +1,8 @@
-/** Options for creating a SpekoAI client. */
+/** Options for creating a Speko client. */
 export interface SpekoClientOptions {
   /** API key for authentication. */
   apiKey: string;
-  /** Base URL of the SpekoAI API. Defaults to https://api.speko.ai */
+  /** Base URL of the Speko API. Defaults to https://api.speko.ai */
   baseUrl?: string;
   /** Request timeout in milliseconds. Defaults to 30000. */
   timeout?: number;
@@ -11,20 +11,20 @@ export interface SpekoClientOptions {
 /** Pipeline configuration for a voice session. */
 export interface PipelineConfig {
   stt: {
-    provider: 'deepgram';
+    provider: string;
     model?: string;
     language?: string;
     keywords?: string[];
   };
   llm: {
-    provider: 'openai';
+    provider: string;
     model: string;
     systemPrompt?: string;
     temperature?: number;
     maxTokens?: number;
   };
   tts: {
-    provider: 'elevenlabs' | 'cartesia';
+    provider: string;
     voice: string;
     model?: string;
     speed?: number;
@@ -82,4 +82,82 @@ export interface UsageQueryParams {
   from?: string;
   /** End date (ISO 8601). */
   to?: string;
+}
+
+// --- Routing primitives -----------------------------------------------------
+
+/** Vertical labels supported by the router. */
+export type Vertical = 'general' | 'healthcare' | 'finance' | 'legal';
+
+/** Optimization preset that biases the router's weighted score. */
+export type OptimizeFor = 'balanced' | 'accuracy' | 'latency' | 'cost';
+
+/** Routing intent passed to the proxy primitives. */
+export interface RoutingIntent {
+  /** BCP-47 language tag, e.g. "en" or "es-MX". */
+  language: string;
+  vertical: Vertical;
+  optimizeFor?: OptimizeFor;
+}
+
+// --- Transcribe -------------------------------------------------------------
+
+export interface TranscribeOptions extends RoutingIntent {
+  /** MIME type of the audio body. Defaults to "audio/wav". */
+  contentType?: string;
+}
+
+export interface TranscribeResult {
+  text: string;
+  provider: string;
+  model: string;
+  confidence: number | null;
+  failoverCount: number;
+  scoresRunId: string | null;
+}
+
+// --- Synthesize -------------------------------------------------------------
+
+export interface SynthesizeOptions extends RoutingIntent {
+  /** Optional voice override. Otherwise the SDK uses each provider's default. */
+  voice?: string;
+  speed?: number;
+}
+
+export interface SynthesizeResult {
+  /** Raw audio bytes. Format depends on the chosen provider — see `contentType`. */
+  audio: Uint8Array;
+  /** MIME type of the audio (e.g. "audio/mpeg" for ElevenLabs, "audio/pcm;rate=24000" for Cartesia). */
+  contentType: string;
+  provider: string;
+  model: string;
+  failoverCount: number;
+  scoresRunId: string | null;
+}
+
+// --- Complete (LLM) ---------------------------------------------------------
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface CompleteParams {
+  messages: ChatMessage[];
+  intent: RoutingIntent;
+  systemPrompt?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
+export interface CompleteResult {
+  text: string;
+  provider: string;
+  model: string;
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+  };
+  failoverCount: number;
+  scoresRunId: string | null;
 }

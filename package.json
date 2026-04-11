@@ -1,9 +1,9 @@
 {
-  "name": "@spekoai/sdk-typescript",
+  "name": "@speko/sdk",
   "version": "0.0.1",
-  "description": "Official SpekoAI Node.js SDK — Voice AI gateway client",
+  "description": "Official Speko TypeScript SDK — one API, every voice provider",
   "license": "MIT",
-  "author": "SpekoAI",
+  "author": "Speko",
   "homepage": "https://github.com/SpekoAI/typescript-sdk#readme",
   "repository": {
     "type": "git",
@@ -13,12 +13,13 @@
     "url": "https://github.com/SpekoAI/typescript-sdk/issues"
   },
   "keywords": [
-    "spekoai",
+    "speko",
     "voice-ai",
+    "stt",
+    "tts",
+    "llm",
     "sdk",
-    "typescript",
-    "nodejs",
-    "livekit"
+    "typescript"
   ],
   "type": "module",
   "main": "./dist/index.js",

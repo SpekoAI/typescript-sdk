@@ -1,41 +1,50 @@
-import type { SpekoClientOptions } from './types/index.js';
+import type {
+  CompleteParams,
+  CompleteResult,
+  SpekoClientOptions,
+  SynthesizeOptions,
+  SynthesizeResult,
+  TranscribeOptions,
+  TranscribeResult,
+} from './types/index.js';
 import { HttpClient } from './http.js';
 import { Sessions } from './resources/sessions.js';
 import { Usage } from './resources/usage.js';
+import { Transcribe } from './resources/transcribe.js';
+import { Synthesize } from './resources/synthesize.js';
+import { Complete } from './resources/complete.js';
 
 const DEFAULT_BASE_URL = 'https://api.speko.ai';
 const DEFAULT_TIMEOUT = 30_000;
 
 /**
- * SpekoAI client for the Voice AI gateway.
+ * Speko client — one API, every voice provider.
  *
  * @example
  * ```ts
- * import { SpekoAI } from '@spekoai/sdk';
+ * import { Speko } from '@speko/sdk';
  *
- * const speko = new SpekoAI({ apiKey: 'sk_live_...' });
+ * const speko = new Speko({ apiKey: process.env.SPEKO_API_KEY });
  *
- * // Create a voice session
- * const session = await speko.sessions.create({
- *   pipeline: {
- *     stt: { provider: 'deepgram' },
- *     llm: { provider: 'openai', model: 'gpt-4o' },
- *     tts: { provider: 'elevenlabs', voice: 'rachel' },
- *   },
+ * const { text, provider } = await speko.transcribe(audioBytes, {
+ *   language: 'es-MX',
+ *   vertical: 'healthcare',
  * });
- *
- * // Connect to LiveKit with the returned token
- * console.log(session.livekitUrl, session.token);
  * ```
  */
-export class SpekoAI {
+export class Speko {
+  /** Real-time voice sessions over LiveKit (back-compat path). */
   readonly sessions: Sessions;
   readonly usage: Usage;
+
+  private readonly transcribeResource: Transcribe;
+  private readonly synthesizeResource: Synthesize;
+  private readonly completeResource: Complete;
 
   constructor(options: SpekoClientOptions) {
     if (!options.apiKey) {
       throw new Error(
-        'SpekoAI: apiKey is required. Get one at https://dashboard.speko.ai/api-keys',
+        'Speko: apiKey is required. Get one at https://dashboard.speko.ai/api-keys',
       );
     }
 
@@ -47,5 +56,39 @@ export class SpekoAI {
 
     this.sessions = new Sessions(http);
     this.usage = new Usage(http);
+    this.transcribeResource = new Transcribe(http);
+    this.synthesizeResource = new Synthesize(http);
+    this.completeResource = new Complete(http);
+  }
+
+  /**
+   * Transcribe audio. The router picks the best STT provider for your
+   * `(language, vertical, optimizeFor)` and fails over automatically.
+   */
+  transcribe(
+    audio: Uint8Array,
+    options: TranscribeOptions,
+  ): Promise<TranscribeResult> {
+    return this.transcribeResource.call(audio, options);
+  }
+
+  /**
+   * Synthesize text into audio. The router picks the best TTS provider and
+   * fails over automatically. The result includes the audio bytes plus the
+   * provider's native content type.
+   */
+  synthesize(
+    text: string,
+    options: SynthesizeOptions,
+  ): Promise<SynthesizeResult> {
+    return this.synthesizeResource.call(text, options);
+  }
+
+  /**
+   * Run an LLM completion. The router picks the best LLM provider and fails
+   * over automatically.
+   */
+  complete(params: CompleteParams): Promise<CompleteResult> {
+    return this.completeResource.call(params);
   }
 }
