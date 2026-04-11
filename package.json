@@ -1,0 +1,52 @@
+{
+  "name": "@speko/sdk",
+  "version": "0.0.1",
+  "description": "Official Speko TypeScript SDK — one API, every voice provider",
+  "license": "MIT",
+  "author": "Speko",
+  "homepage": "https://github.com/SpekoAI/typescript-sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SpekoAI/typescript-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SpekoAI/typescript-sdk/issues"
+  },
+  "keywords": [
+    "speko",
+    "voice-ai",
+    "stt",
+    "tts",
+    "llm",
+    "sdk",
+    "typescript"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@spekoai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "provenance": true
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  }
+}
