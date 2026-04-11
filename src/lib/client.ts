@@ -64,12 +64,16 @@ export class Speko {
   /**
    * Transcribe audio. The router picks the best STT provider for your
    * `(language, vertical, optimizeFor)` and fails over automatically.
+   *
+   * Pass an `AbortSignal` to cancel the in-flight request — useful when a
+   * calling framework (e.g. LiveKit Agents) tears down a session mid-call.
    */
   transcribe(
     audio: Uint8Array,
     options: TranscribeOptions,
+    abortSignal?: AbortSignal,
   ): Promise<TranscribeResult> {
-    return this.transcribeResource.call(audio, options);
+    return this.transcribeResource.call(audio, options, abortSignal);
   }
 
   /**
@@ -80,15 +84,19 @@ export class Speko {
   synthesize(
     text: string,
     options: SynthesizeOptions,
+    abortSignal?: AbortSignal,
   ): Promise<SynthesizeResult> {
-    return this.synthesizeResource.call(text, options);
+    return this.synthesizeResource.call(text, options, abortSignal);
   }
 
   /**
    * Run an LLM completion. The router picks the best LLM provider and fails
    * over automatically.
    */
-  complete(params: CompleteParams): Promise<CompleteResult> {
-    return this.completeResource.call(params);
+  complete(
+    params: CompleteParams,
+    abortSignal?: AbortSignal,
+  ): Promise<CompleteResult> {
+    return this.completeResource.call(params, abortSignal);
   }
 }

@@ -27,6 +27,7 @@ export class Synthesize {
   async call(
     text: string,
     options: SynthesizeOptions,
+    abortSignal?: AbortSignal,
   ): Promise<SynthesizeResult> {
     const intent = {
       language: options.language,
@@ -42,6 +43,7 @@ export class Synthesize {
       'POST',
       '/v1/synthesize',
       body,
+      abortSignal,
     );
 
     return {
