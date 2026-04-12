@@ -18,8 +18,15 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          registry-url: 'https://registry.npmjs.org'
+          node-version: 22
+
+      # Trusted publisher OIDC exchange needs a recent npm CLI (>=11.5).
+      # Node 22 LTS ships with npm 10.x, so upgrade explicitly here.
+      # Also: do NOT use setup-node's registry-url — it writes an
+      # .npmrc with an _authToken placeholder that prevents npm from
+      # falling through to the OIDC flow. Let npm default to the public
+      # registry instead.
+      - run: npm install -g npm@latest
 
       - run: npm install --no-save
 
@@ -28,8 +35,6 @@ jobs:
 
       - name: Publish with provenance
         run: npm publish --provenance --access public
-        env:
-          NPM_CONFIG_PROVENANCE: 'true'
 
       - name: Create GitHub release
         env:
