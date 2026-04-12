@@ -1,4 +1,4 @@
-# @speko/sdk
+# @spekoai/sdk
 
 Official TypeScript SDK for [Speko](https://speko.ai) — one API, every voice provider.
 
@@ -10,17 +10,17 @@ right provider for every call.
 ## Installation
 
 ```bash
-npm install @speko/sdk
+npm install @spekoai/sdk
 # or
-pnpm add @speko/sdk
+pnpm add @spekoai/sdk
 # or
-bun add @speko/sdk
+bun add @spekoai/sdk
 ```
 
 ## Quickstart
 
 ```ts
-import { Speko } from '@speko/sdk';
+import { Speko } from '@spekoai/sdk';
 import { readFile } from 'node:fs/promises';
 
 const speko = new Speko({ apiKey: process.env.SPEKO_API_KEY });
