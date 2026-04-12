@@ -16,7 +16,6 @@
     "strict": true,
     "target": "es2022",
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "rootDir": "src",
     "outDir": "dist",
     "tsBuildInfoFile": ".tsbuildinfo/publish.tsbuildinfo",
