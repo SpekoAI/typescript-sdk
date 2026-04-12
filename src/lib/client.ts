@@ -22,7 +22,7 @@ const DEFAULT_TIMEOUT = 30_000;
  *
  * @example
  * ```ts
- * import { Speko } from '@speko/sdk';
+ * import { Speko } from '@spekoai/sdk';
  *
  * const speko = new Speko({ apiKey: process.env.SPEKO_API_KEY });
  *

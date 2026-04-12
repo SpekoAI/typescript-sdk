@@ -1,5 +1,5 @@
 {
-  "name": "@speko/sdk",
+  "name": "@spekoai/sdk",
   "version": "0.0.1",
   "description": "Official Speko TypeScript SDK — one API, every voice provider",
   "license": "MIT",

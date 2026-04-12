@@ -1,4 +1,4 @@
-# Contributing to `@speko/sdk`
+# Contributing to `@spekoai/sdk`
 
 Thanks for your interest in contributing! PRs and issues are welcome on this
 repository.
