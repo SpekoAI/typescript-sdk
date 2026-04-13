@@ -8,7 +8,6 @@ import type {
   TranscribeResult,
 } from './types/index.js';
 import { HttpClient } from './http.js';
-import { Sessions } from './resources/sessions.js';
 import { Usage } from './resources/usage.js';
 import { Transcribe } from './resources/transcribe.js';
 import { Synthesize } from './resources/synthesize.js';
@@ -33,8 +32,6 @@ const DEFAULT_TIMEOUT = 30_000;
  * ```
  */
 export class Speko {
-  /** Real-time voice sessions over LiveKit (back-compat path). */
-  readonly sessions: Sessions;
   readonly usage: Usage;
 
   private readonly transcribeResource: Transcribe;
@@ -54,7 +51,6 @@ export class Speko {
       timeout: options.timeout ?? DEFAULT_TIMEOUT,
     });
 
-    this.sessions = new Sessions(http);
     this.usage = new Usage(http);
     this.transcribeResource = new Transcribe(http);
     this.synthesizeResource = new Synthesize(http);
