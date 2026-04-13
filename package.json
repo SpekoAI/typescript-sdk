@@ -1,6 +1,6 @@
 {
   "name": "@spekoai/sdk",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Official Speko TypeScript SDK — one API, every voice provider",
   "license": "MIT",
   "author": "Speko",
@@ -48,5 +48,9 @@
   },
   "dependencies": {
     "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "~5.9.2"
   }
 }
