@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-04-13
+
+### Fixed
+
+- Add `typescript` + `@types/node` as devDependencies so the mirror publish build (`npm install --no-save` + `npx tsc`) resolves the real compiler instead of the squatter `tsc@2.0.4` npm package.
+
 ## [0.0.2] - 2026-04-13
 
 ### Changed
