@@ -39,5 +39,5 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           gh release create "${GITHUB_REF_NAME}" \
             --title "v${VERSION}" \
-            --notes-from-tag \
+            --generate-notes \
             --verify-tag
