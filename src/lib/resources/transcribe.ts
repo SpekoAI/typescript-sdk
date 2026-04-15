@@ -31,14 +31,19 @@ export class Transcribe {
       ...(options.optimizeFor !== undefined && { optimizeFor: options.optimizeFor }),
     };
 
+    const headers: Record<string, string> = {
+      'Content-Type': options.contentType ?? 'audio/wav',
+      'X-Speko-Intent': JSON.stringify(intent),
+    };
+    if (options.constraints) {
+      headers['X-Speko-Constraints'] = JSON.stringify(options.constraints);
+    }
+
     return this.http.requestRaw<TranscribeResult>(
       'POST',
       '/v1/transcribe',
       audio,
-      {
-        'Content-Type': options.contentType ?? 'audio/wav',
-        'X-Speko-Intent': JSON.stringify(intent),
-      },
+      headers,
       abortSignal,
     );
   }

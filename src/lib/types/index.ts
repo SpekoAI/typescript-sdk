@@ -48,11 +48,25 @@ export interface RoutingIntent {
   optimizeFor?: OptimizeFor;
 }
 
+/**
+ * Optional constraints layered on top of `RoutingIntent`. The router still
+ * ranks candidates by benchmark score — but if `allowedProviders[modality]`
+ * is set and non-empty, it only considers that subset.
+ */
+export interface PipelineConstraints {
+  allowedProviders?: {
+    stt?: string[];
+    llm?: string[];
+    tts?: string[];
+  };
+}
+
 // --- Transcribe -------------------------------------------------------------
 
 export interface TranscribeOptions extends RoutingIntent {
   /** MIME type of the audio body. Defaults to "audio/wav". */
   contentType?: string;
+  constraints?: PipelineConstraints;
 }
 
 export interface TranscribeResult {
@@ -70,6 +84,7 @@ export interface SynthesizeOptions extends RoutingIntent {
   /** Optional voice override. Otherwise the SDK uses each provider's default. */
   voice?: string;
   speed?: number;
+  constraints?: PipelineConstraints;
 }
 
 export interface SynthesizeResult {
@@ -96,6 +111,7 @@ export interface CompleteParams {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
+  constraints?: PipelineConstraints;
 }
 
 export interface CompleteResult {
