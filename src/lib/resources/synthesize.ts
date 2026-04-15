@@ -38,6 +38,7 @@ export class Synthesize {
     const body: Record<string, unknown> = { text, intent };
     if (options.voice !== undefined) body['voice'] = options.voice;
     if (options.speed !== undefined) body['speed'] = options.speed;
+    if (options.constraints !== undefined) body['constraints'] = options.constraints;
 
     const { bytes, headers } = await this.http.requestBinary(
       'POST',

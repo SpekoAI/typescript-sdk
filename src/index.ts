@@ -8,6 +8,7 @@ export type {
   Vertical,
   OptimizeFor,
   RoutingIntent,
+  PipelineConstraints,
   TranscribeOptions,
   TranscribeResult,
   SynthesizeOptions,
