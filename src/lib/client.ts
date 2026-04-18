@@ -9,6 +9,7 @@ import type {
 } from './types/index.js';
 import { HttpClient } from './http.js';
 import { Usage } from './resources/usage.js';
+import { Credits } from './resources/credits.js';
 import { Transcribe } from './resources/transcribe.js';
 import { Synthesize } from './resources/synthesize.js';
 import { Complete } from './resources/complete.js';
@@ -33,6 +34,7 @@ const DEFAULT_TIMEOUT = 30_000;
  */
 export class Speko {
   readonly usage: Usage;
+  readonly credits: Credits;
 
   private readonly transcribeResource: Transcribe;
   private readonly synthesizeResource: Synthesize;
@@ -52,6 +54,7 @@ export class Speko {
     });
 
     this.usage = new Usage(http);
+    this.credits = new Credits(http);
     this.transcribeResource = new Transcribe(http);
     this.synthesizeResource = new Synthesize(http);
     this.completeResource = new Complete(http);
