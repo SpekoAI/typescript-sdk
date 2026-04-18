@@ -76,6 +76,11 @@ const speech = await speko.synthesize('Hello world', {
   `ChatMessage`, `CompleteParams`, `TranscribeOptions`, `SynthesizeOptions`,
   all `*Result` and `Usage*` interfaces.
 
+**Not in the SDK (today):** session minting for the browser voice
+flow. That lives at `POST /v1/sessions` and is a direct REST call —
+see `spekoai://docs/client-skills` §"Backend: minting a conversation
+token" for the exact request/response shape.
+
 ## Concepts
 
 - **`RoutingIntent = { language, vertical, optimizeFor? }`** — the minimum
