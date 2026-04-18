@@ -8,18 +8,25 @@ export interface SpekoClientOptions {
   timeout?: number;
 }
 
+/** BYOK = customer key, no Speko charge. MANAGED = platform key, billed. */
+export type KeySource = 'BYOK' | 'MANAGED';
+
 /** Usage record for a workspace. */
 export interface UsageSummary {
   totalSessions: number;
   totalMinutes: number;
   totalCost: number;
   breakdown: UsageByProvider[];
+  /** Current organization balance in micro-USD (1_000_000 µ$ = $1), as string. */
+  balanceMicroUsd: string;
+  balanceUsd: number;
 }
 
 export interface UsageByProvider {
   provider: string;
   type: 'stt' | 'llm' | 'tts';
   metric: string;
+  keySource: KeySource;
   quantity: number;
   cost: number;
 }
@@ -30,6 +37,42 @@ export interface UsageQueryParams {
   from?: string;
   /** End date (ISO 8601). */
   to?: string;
+}
+
+/** Current prepaid credit balance. */
+export interface OrganizationBalance {
+  balanceMicroUsd: string;
+  balanceUsd: number;
+  updatedAt: string;
+}
+
+export type CreditLedgerKind =
+  | 'grant'
+  | 'debit'
+  | 'topup'
+  | 'refund'
+  | 'adjustment';
+
+export interface CreditLedgerEntry {
+  id: string;
+  kind: CreditLedgerKind;
+  /** Signed. Positive for grants/topups/refunds, negative for debits. */
+  amountMicroUsd: string;
+  metric: string | null;
+  provider: string | null;
+  sessionId: string | null;
+  createdAt: string;
+}
+
+export interface CreditLedgerPage {
+  entries: CreditLedgerEntry[];
+  /** Pass back as `cursor` for the next page, or null if exhausted. */
+  nextCursor: string | null;
+}
+
+export interface CreditLedgerQueryParams {
+  limit?: number;
+  cursor?: string;
 }
 
 // --- Routing primitives -----------------------------------------------------

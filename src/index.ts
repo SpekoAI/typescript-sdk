@@ -2,9 +2,15 @@ export { Speko } from './lib/client.js';
 export { SpekoApiError, SpekoAuthError, SpekoRateLimitError } from './lib/errors.js';
 export type {
   SpekoClientOptions,
+  KeySource,
   UsageSummary,
   UsageByProvider,
   UsageQueryParams,
+  OrganizationBalance,
+  CreditLedgerEntry,
+  CreditLedgerKind,
+  CreditLedgerPage,
+  CreditLedgerQueryParams,
   Vertical,
   OptimizeFor,
   RoutingIntent,
