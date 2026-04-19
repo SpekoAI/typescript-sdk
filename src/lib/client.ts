@@ -13,6 +13,7 @@ import { Credits } from './resources/credits.js';
 import { Transcribe } from './resources/transcribe.js';
 import { Synthesize } from './resources/synthesize.js';
 import { Complete } from './resources/complete.js';
+import { Realtime } from './resources/realtime.js';
 
 const DEFAULT_BASE_URL = 'https://api.speko.ai';
 const DEFAULT_TIMEOUT = 30_000;
@@ -35,6 +36,7 @@ const DEFAULT_TIMEOUT = 30_000;
 export class Speko {
   readonly usage: Usage;
   readonly credits: Credits;
+  readonly realtime: Realtime;
 
   private readonly transcribeResource: Transcribe;
   private readonly synthesizeResource: Synthesize;
@@ -55,6 +57,7 @@ export class Speko {
 
     this.usage = new Usage(http);
     this.credits = new Credits(http);
+    this.realtime = new Realtime(http);
     this.transcribeResource = new Transcribe(http);
     this.synthesizeResource = new Synthesize(http);
     this.completeResource = new Complete(http);

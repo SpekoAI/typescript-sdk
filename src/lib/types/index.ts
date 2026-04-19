@@ -168,3 +168,78 @@ export interface CompleteResult {
   failoverCount: number;
   scoresRunId: string | null;
 }
+
+// --- Realtime (S2S) ---------------------------------------------------------
+
+export type RealtimeProvider = 'openai' | 'google' | 'xai';
+
+export interface RealtimeToolSpec {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+export interface RealtimeConnectParams {
+  provider: RealtimeProvider;
+  model: string;
+  voice?: string;
+  systemPrompt?: string;
+  temperature?: number;
+  inputSampleRate?: 16000 | 24000;
+  outputSampleRate?: 16000 | 24000;
+  tools?: RealtimeToolSpec[];
+  metadata?: Record<string, unknown>;
+  /** Max session duration in seconds. Server-capped at 1800 (30 min). */
+  ttlSeconds?: number;
+}
+
+/**
+ * Event shape emitted by a `RealtimeSessionHandle`. Binary audio comes in
+ * as `audio` frames; text control messages come through typed variants.
+ */
+export type RealtimeFrame =
+  | { type: 'audio'; pcm: Uint8Array; sampleRate: number }
+  | {
+      type: 'transcript';
+      role: 'user' | 'assistant';
+      text: string;
+      final: boolean;
+    }
+  | {
+      type: 'tool_call';
+      callId: string;
+      name: string;
+      arguments: string;
+    }
+  | {
+      type: 'usage';
+      inputAudioTokens: number;
+      outputAudioTokens: number;
+    }
+  | { type: 'error'; code: string; message: string }
+  | { type: 'close'; code: number; reason: string };
+
+export type RealtimeEventHandler = (frame: RealtimeFrame) => void;
+
+export interface RealtimeSessionHandle {
+  readonly sessionId: string;
+  readonly expiresAt: string;
+
+  /** Send a PCM16 audio chunk up to the model. */
+  sendAudio(pcm: Uint8Array): void;
+
+  /** Signal user-turn boundary / commit the input buffer. */
+  commit(): void;
+
+  /** Interrupt the current assistant response. */
+  interrupt(): void;
+
+  /** Return a previously-requested tool call result. */
+  sendToolResult(callId: string, output: string): void;
+
+  /** Subscribe to frames. Returns an unsubscribe callback. */
+  on(handler: RealtimeEventHandler): () => void;
+
+  /** Close the session. Safe to call multiple times. */
+  close(code?: number, reason?: string): void;
+}
