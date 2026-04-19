@@ -22,4 +22,10 @@ export type {
   ChatMessage,
   CompleteParams,
   CompleteResult,
+  RealtimeProvider,
+  RealtimeToolSpec,
+  RealtimeConnectParams,
+  RealtimeFrame,
+  RealtimeEventHandler,
+  RealtimeSessionHandle,
 } from './lib/types/index.js';
