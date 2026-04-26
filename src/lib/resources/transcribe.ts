@@ -9,14 +9,13 @@ export class Transcribe {
 
   /**
    * Transcribe audio. The Speko router picks the best STT provider for
-   * your `(language, vertical, optimizeFor)` and falls over automatically.
+   * your `(language, optimizeFor)` and falls over automatically.
    *
    * @example
    * ```ts
    * const audio = await readFile('./call.wav');
    * const { text, provider, confidence } = await speko.transcribe(audio, {
    *   language: 'es-MX',
-   *   vertical: 'healthcare',
    * });
    * ```
    */
@@ -27,7 +26,6 @@ export class Transcribe {
   ): Promise<TranscribeResult> {
     const intent = {
       language: options.language,
-      vertical: options.vertical,
       ...(options.optimizeFor !== undefined && { optimizeFor: options.optimizeFor }),
     };
 

@@ -77,9 +77,6 @@ export interface CreditLedgerQueryParams {
 
 // --- Routing primitives -----------------------------------------------------
 
-/** Vertical labels supported by the router. */
-export type Vertical = 'general' | 'healthcare' | 'finance' | 'legal';
-
 /** Optimization preset that biases the router's weighted score. */
 export type OptimizeFor = 'balanced' | 'accuracy' | 'latency' | 'cost';
 
@@ -87,7 +84,6 @@ export type OptimizeFor = 'balanced' | 'accuracy' | 'latency' | 'cost';
 export interface RoutingIntent {
   /** BCP-47 language tag, e.g. "en" or "es-MX". */
   language: string;
-  vertical: Vertical;
   optimizeFor?: OptimizeFor;
 }
 

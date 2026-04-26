@@ -29,7 +29,6 @@ const DEFAULT_TIMEOUT = 30_000;
  *
  * const { text, provider } = await speko.transcribe(audioBytes, {
  *   language: 'es-MX',
- *   vertical: 'healthcare',
  * });
  * ```
  */
@@ -65,7 +64,7 @@ export class Speko {
 
   /**
    * Transcribe audio. The router picks the best STT provider for your
-   * `(language, vertical, optimizeFor)` and fails over automatically.
+   * `(language, optimizeFor)` and fails over automatically.
    *
    * Pass an `AbortSignal` to cancel the in-flight request — useful when a
    * calling framework (e.g. LiveKit Agents) tears down a session mid-call.
