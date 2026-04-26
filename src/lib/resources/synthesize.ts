@@ -30,6 +30,7 @@ export class Synthesize {
   ): Promise<SynthesizeResult> {
     const intent = {
       language: options.language,
+      ...(options.region !== undefined && { region: options.region }),
       ...(options.optimizeFor !== undefined && { optimizeFor: options.optimizeFor }),
     };
 

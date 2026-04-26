@@ -29,6 +29,7 @@ const speko = new Speko({ apiKey: process.env.SPEKO_API_KEY });
 const audio = await readFile('./call.wav');
 const { text, provider, confidence } = await speko.transcribe(audio, {
   language: 'es-MX',
+  region: 'us-east4', // optional — rank streaming providers in this region
 });
 
 // Synthesize — best TTS provider auto-routed
