@@ -84,6 +84,13 @@ export type OptimizeFor = 'balanced' | 'accuracy' | 'latency' | 'cost';
 export interface RoutingIntent {
   /** BCP-47 language tag, e.g. "en" or "es-MX". */
   language: string;
+  /**
+   * Region to rank streaming providers in (e.g. `"us-east4"`, `"eu-west1"`).
+   * Defaults to `"global"` on the server, which surfaces region-agnostic
+   * (batch) benchmark rows. Set this when latency to a specific
+   * geography matters — STT/TTS rankings differ per region.
+   */
+  region?: string;
   optimizeFor?: OptimizeFor;
 }
 

@@ -81,9 +81,14 @@ token" for the exact request/response shape.
 
 ## Concepts
 
-- **`RoutingIntent = { language, optimizeFor? }`** — the minimum
-  signal the router needs to rank providers. `language` is BCP-47. Valid
-  `optimizeFor`: `balanced | accuracy | latency | cost`.
+- **`RoutingIntent = { language, region?, optimizeFor? }`** — the
+  minimum signal the router needs to rank providers. `language` is
+  BCP-47. `region` is an optional string (e.g. `'us-east4'`,
+  `'eu-west1'`); the server defaults it to `'global'`, which surfaces
+  region-agnostic (batch) benchmark rows. Set it when streaming
+  latency to a specific geography matters — STT/TTS rankings differ
+  per region. Valid `optimizeFor`: `balanced | accuracy | latency |
+  cost`.
 - **`PipelineConstraints.allowedProviders`** — optional per-modality
   allowlist. The router still ranks by benchmark score but only from the
   subset. Use when a customer requires e.g. Deepgram-only STT.

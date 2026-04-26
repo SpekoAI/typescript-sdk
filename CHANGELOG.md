@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-04-26
+
+### Added
+
+- `RoutingIntent.region` — optional string forwarded to the gateway as
+  `intent.region`. Set when latency to a specific geography matters
+  (e.g. `'us-east4'`, `'eu-west1'`); STT/TTS rankings differ per
+  region. Omitting it preserves the previous behaviour: the server
+  defaults to `'global'`, which surfaces the region-agnostic (batch)
+  benchmark rows. Plumbed through `transcribe()`, `synthesize()`, and
+  `complete({ intent })`.
+
+## [0.2.0] - 2026-04-26
+
+### Removed
+
+- **BREAKING**: `RoutingIntent.vertical` removed (and the `Vertical`
+  union type along with it). The router now ranks on
+  `(language, optimizeFor)` only. Callers passing `vertical` will fail
+  to type-check; the gateway also rejects the field. Old persisted
+  session pipeline configs containing `vertical` are tolerated server-
+  side.
+
 ## [0.0.3] - 2026-04-13
 
 ### Fixed
