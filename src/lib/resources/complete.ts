@@ -6,13 +6,13 @@ export class Complete {
 
   /**
    * Run an LLM completion. The Speko router picks the best provider for your
-   * `(language, vertical, optimizeFor)` and falls over automatically.
+   * `(language, optimizeFor)` and falls over automatically.
    *
    * @example
    * ```ts
    * const { text, provider } = await speko.complete({
    *   messages: [{ role: 'user', content: 'Hi!' }],
-   *   intent: { language: 'en', vertical: 'general' },
+   *   intent: { language: 'en' },
    * });
    * ```
    */

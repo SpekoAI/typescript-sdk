@@ -27,7 +27,6 @@ async function main() {
   if (audio.byteLength > 0) {
     const transcription = await speko.transcribe(audio, {
       language: 'en',
-      vertical: 'general',
       optimizeFor: 'accuracy',
     });
     console.log(transcription);
@@ -38,14 +37,13 @@ async function main() {
     messages: [
       { role: 'user', content: 'Say hi in one short sentence.' },
     ],
-    intent: { language: 'en', vertical: 'general' },
+    intent: { language: 'en' },
   });
   console.log(completion);
 
   console.log('\n=== speko.synthesize ===');
   const synth = await speko.synthesize('Welcome to Speko.', {
     language: 'en',
-    vertical: 'general',
   });
   const ext = synth.contentType.includes('mpeg') ? 'mp3' : 'pcm';
   const outPath = resolve(import.meta.dirname, '..', `out.${ext}`);

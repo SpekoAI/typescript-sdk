@@ -11,7 +11,6 @@ export type {
   CreditLedgerKind,
   CreditLedgerPage,
   CreditLedgerQueryParams,
-  Vertical,
   OptimizeFor,
   RoutingIntent,
   PipelineConstraints,

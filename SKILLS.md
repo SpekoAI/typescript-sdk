@@ -38,25 +38,23 @@ import { readFile } from 'node:fs/promises';
 
 const speko = new Speko({ apiKey: process.env.SPEKO_API_KEY! });
 
-// STT — one API, router picks best provider for your (language, vertical).
+// STT — one API, router picks best provider for your language.
 const audio = await readFile('./call.wav');
 const stt = await speko.transcribe(audio, {
   language: 'es-MX',
-  vertical: 'healthcare',
 });
 console.log(stt.text, stt.provider, stt.confidence);
 
 // LLM
 const reply = await speko.complete({
   messages: [{ role: 'user', content: 'Hi!' }],
-  intent: { language: 'en', vertical: 'general' },
+  intent: { language: 'en' },
 });
 console.log(reply.text);
 
 // TTS
 const speech = await speko.synthesize('Hello world', {
   language: 'en',
-  vertical: 'general',
 });
 // speech.audio is a Uint8Array; format depends on provider (check speech.contentType):
 //   audio/mpeg       -> ElevenLabs
@@ -72,7 +70,7 @@ const speech = await speko.synthesize('Hello world', {
 - `speko.complete(params, abortSignal?) -> CompleteResult`
 - `speko.usage.get({ from?, to? }) -> UsageSummary`
 - Errors: `SpekoApiError`, `SpekoAuthError`, `SpekoRateLimitError`.
-- Types: `RoutingIntent`, `Vertical`, `OptimizeFor`, `PipelineConstraints`,
+- Types: `RoutingIntent`, `OptimizeFor`, `PipelineConstraints`,
   `ChatMessage`, `CompleteParams`, `TranscribeOptions`, `SynthesizeOptions`,
   all `*Result` and `Usage*` interfaces.
 
@@ -83,9 +81,8 @@ token" for the exact request/response shape.
 
 ## Concepts
 
-- **`RoutingIntent = { language, vertical, optimizeFor? }`** — the minimum
+- **`RoutingIntent = { language, optimizeFor? }`** — the minimum
   signal the router needs to rank providers. `language` is BCP-47. Valid
-  `vertical`: `general | healthcare | finance | legal`. Valid
   `optimizeFor`: `balanced | accuracy | latency | cost`.
 - **`PipelineConstraints.allowedProviders`** — optional per-modality
   allowlist. The router still ranks by benchmark score but only from the
@@ -101,8 +98,8 @@ token" for the exact request/response shape.
   MP3, Cartesia = raw PCM, others vary.
 - **`transcribe()` takes raw bytes**, not a `File` or `ReadableStream`.
   Use `readFile` / `arrayBuffer` / `Uint8Array.from(...)`.
-- **`complete()` wants `{ messages, intent }`**, not `{ messages, language,
-  vertical }`. Intent is a nested object.
+- **`complete()` wants `{ messages, intent }`**, not `{ messages, language }`.
+  Intent is a nested object.
 - **Cancel long-running requests** by passing an `AbortSignal` as the last
   argument — LiveKit Agents tears down mid-turn and the SDK honors it.
 - **`apiKey` is required.** The constructor throws if missing — fail-fast

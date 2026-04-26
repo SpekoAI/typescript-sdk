@@ -9,7 +9,7 @@ export class Synthesize {
 
   /**
    * Synthesize text into audio. The Speko router picks the best TTS provider
-   * for your `(language, vertical, optimizeFor)` and falls over automatically.
+   * for your `(language, optimizeFor)` and falls over automatically.
    *
    * The returned audio's format depends on the chosen provider — check the
    * `contentType` field on the result. ElevenLabs returns `audio/mpeg`,
@@ -19,7 +19,6 @@ export class Synthesize {
    * ```ts
    * const result = await speko.synthesize('Hello world', {
    *   language: 'en',
-   *   vertical: 'general',
    * });
    * await writeFile(`out.${result.contentType.includes('mpeg') ? 'mp3' : 'pcm'}`, result.audio);
    * ```
@@ -31,7 +30,6 @@ export class Synthesize {
   ): Promise<SynthesizeResult> {
     const intent = {
       language: options.language,
-      vertical: options.vertical,
       ...(options.optimizeFor !== undefined && { optimizeFor: options.optimizeFor }),
     };
 
