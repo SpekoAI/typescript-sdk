@@ -4,7 +4,7 @@ import { Speko } from '@spekoai/sdk';
 
 const apiKey = process.env['SPEKO_API_KEY'];
 if (!apiKey) {
-  console.error('Missing SPEKO_API_KEY. Generate one at https://platform.speko.ai/api-keys');
+  console.error('Missing SPEKO_API_KEY. Generate one at https://platform.speko.dev/api-keys');
   process.exit(1);
 }
 
