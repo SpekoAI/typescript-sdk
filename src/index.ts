@@ -27,4 +27,10 @@ export type {
   RealtimeFrame,
   RealtimeEventHandler,
   RealtimeSessionHandle,
+  VoiceDialParams,
+  VoiceDialResult,
+  PhoneNumberDirection,
+  PhoneNumberRow,
+  PhoneNumberCreateParams,
+  PhoneNumberUpdateParams,
 } from './lib/types/index.js';

@@ -246,3 +246,63 @@ export interface RealtimeSessionHandle {
   /** Close the session. Safe to call multiple times. */
   close(code?: number, reason?: string): void;
 }
+
+// ─── Voice (phone dial) ──────────────────────────────────────────────
+
+export interface VoiceDialParams {
+  /** Destination number in E.164 format (e.g. "+12015551234"). */
+  to: string;
+  /** Caller ID. Falls back to the org default if omitted server-side. */
+  from?: string;
+  /** Routing intent — language is required, optimizeFor optional. */
+  intent: RoutingIntent;
+  constraints?: PipelineConstraints;
+  /** TTS voice id passed through to the picked TTS provider. */
+  voice?: string;
+  /** Agent system prompt. */
+  systemPrompt?: string;
+  llm?: { temperature?: number; maxTokens?: number };
+  ttsOptions?: { sampleRate?: number; speed?: number };
+  /** Free-form metadata round-tripped to your webhooks. */
+  metadata?: Record<string, unknown>;
+}
+
+export interface VoiceDialResult {
+  sessionId: string;
+  callControlId: string;
+  roomName: string;
+  /** 'dialing' on a real call, 'dialing-stub' if Telnyx isn't configured. */
+  status: 'dialing' | 'dialing-stub';
+  to: string;
+  from: string;
+}
+
+// ─── Phone numbers ───────────────────────────────────────────────────
+
+export type PhoneNumberDirection = 'inbound' | 'outbound' | 'both';
+
+export interface PhoneNumberRow {
+  id: string;
+  organizationId: string;
+  e164: string;
+  telnyxPhoneNumberId: string | null;
+  direction: PhoneNumberDirection;
+  dispatchMetadataTemplate: Record<string, unknown> | null;
+  label: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PhoneNumberCreateParams {
+  e164: string;
+  direction?: PhoneNumberDirection;
+  /** LiveKit dispatch metadata template (variables `{{var}}` resolved at dial). */
+  dispatchMetadataTemplate?: Record<string, unknown>;
+  label?: string;
+}
+
+export interface PhoneNumberUpdateParams {
+  direction?: PhoneNumberDirection;
+  dispatchMetadataTemplate?: Record<string, unknown>;
+  label?: string;
+}

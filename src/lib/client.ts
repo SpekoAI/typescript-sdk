@@ -14,6 +14,8 @@ import { Transcribe } from './resources/transcribe.js';
 import { Synthesize } from './resources/synthesize.js';
 import { Complete } from './resources/complete.js';
 import { Realtime } from './resources/realtime.js';
+import { Voice } from './resources/voice.js';
+import { PhoneNumbers } from './resources/phone-numbers.js';
 
 const DEFAULT_BASE_URL = 'https://api.speko.ai';
 const DEFAULT_TIMEOUT = 30_000;
@@ -36,6 +38,8 @@ export class Speko {
   readonly usage: Usage;
   readonly credits: Credits;
   readonly realtime: Realtime;
+  readonly voice: Voice;
+  readonly phoneNumbers: PhoneNumbers;
 
   private readonly transcribeResource: Transcribe;
   private readonly synthesizeResource: Synthesize;
@@ -57,6 +61,8 @@ export class Speko {
     this.usage = new Usage(http);
     this.credits = new Credits(http);
     this.realtime = new Realtime(http);
+    this.voice = new Voice(http);
+    this.phoneNumbers = new PhoneNumbers(http);
     this.transcribeResource = new Transcribe(http);
     this.synthesizeResource = new Synthesize(http);
     this.completeResource = new Complete(http);

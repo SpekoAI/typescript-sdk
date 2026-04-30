@@ -68,6 +68,14 @@ export class HttpClient {
     return this.request<T>('DELETE', path, undefined, externalSignal);
   }
 
+  async patch<T>(
+    path: string,
+    body: unknown,
+    externalSignal?: AbortSignal,
+  ): Promise<T> {
+    return this.request<T>('PATCH', path, body, externalSignal);
+  }
+
   /**
    * Send raw bytes as the request body and parse a JSON response.
    * Used by `speko.transcribe()` to upload audio and receive a transcript.
