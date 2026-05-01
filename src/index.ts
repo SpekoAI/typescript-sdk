@@ -33,4 +33,6 @@ export type {
   PhoneNumberRow,
   PhoneNumberCreateParams,
   PhoneNumberUpdateParams,
+  AvailablePhoneNumber,
+  PhoneNumberSearchParams,
 } from './lib/types/index.js';

@@ -306,3 +306,25 @@ export interface PhoneNumberUpdateParams {
   dispatchMetadataTemplate?: Record<string, unknown>;
   label?: string;
 }
+
+export interface AvailablePhoneNumber {
+  e164: string;
+  friendlyName: string;
+  monthlyCostUsd: number;
+  upfrontCostUsd: number;
+  features: string[];
+  region: {
+    state: string | null;
+    locality: string | null;
+    rateCenter: string | null;
+  };
+}
+
+export interface PhoneNumberSearchParams {
+  /** 3-digit US area code, e.g. "415". */
+  areaCode?: string;
+  /** Optional locality filter, e.g. "San Francisco". */
+  locality?: string;
+  /** Max results — Telnyx caps at 50. Default 10. */
+  limit?: number;
+}

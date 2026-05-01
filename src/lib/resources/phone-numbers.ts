@@ -1,7 +1,9 @@
 import type { HttpClient } from '../http.js';
 import type {
+  AvailablePhoneNumber,
   PhoneNumberCreateParams,
   PhoneNumberRow,
+  PhoneNumberSearchParams,
   PhoneNumberUpdateParams,
 } from '../types/index.js';
 
@@ -33,6 +35,30 @@ export class PhoneNumbers {
 
   list(): Promise<PhoneNumberRow[]> {
     return this.http.get<PhoneNumberRow[]>('/v1/phone-numbers');
+  }
+
+  /**
+   * Search Telnyx's pool for orderable US numbers. Filter by area code
+   * and/or locality. Results include cost so you can preview "$1 upfront +
+   * $1/month" before committing to {@link create}.
+   *
+   * @example
+   * ```ts
+   * const candidates = await speko.phoneNumbers.searchAvailable({ areaCode: '415' });
+   * console.log(candidates[0].friendlyName); // "+1 (415) 555-0123"
+   * ```
+   */
+  searchAvailable(
+    params: PhoneNumberSearchParams = {},
+  ): Promise<AvailablePhoneNumber[]> {
+    const query = new URLSearchParams();
+    if (params.areaCode) query.set('areaCode', params.areaCode);
+    if (params.locality) query.set('locality', params.locality);
+    if (params.limit !== undefined) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    return this.http.get<AvailablePhoneNumber[]>(
+      `/v1/phone-numbers/available${qs ? `?${qs}` : ''}`,
+    );
   }
 
   get(id: string): Promise<PhoneNumberRow> {
