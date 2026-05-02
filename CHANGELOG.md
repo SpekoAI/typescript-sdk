@@ -1,3 +1,16 @@
+## 0.3.0 (2026-05-02)
+
+### 🚀 Features
+
+- **adapter-livekit:** wire tool calls through /v1/complete ([#105](https://github.com/SpekoAI/platform/pull/105))
+- **dashboard:** /phone-numbers page — buy + edit + release US numbers ([ec3d541](https://github.com/SpekoAI/platform/commit/ec3d541))
+- **telephony:** Telnyx outbound + inbound + phone number CRUD ([c5cc1f0](https://github.com/SpekoAI/platform/commit/c5cc1f0))
+
+### ❤️ Thank You
+
+- Baymurat785 @Baymurat785
+- Claude Opus 4.7 (1M context)
+
 # Changelog
 
 All notable changes to `@spekoai/sdk` will be documented in this file.
