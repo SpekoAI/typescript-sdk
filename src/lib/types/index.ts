@@ -146,10 +146,42 @@ export interface SynthesizeResult {
 
 // --- Complete (LLM) ---------------------------------------------------------
 
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+/**
+ * One LLM-emitted tool invocation. `args` is a JSON-encoded string (LLMs may
+ * stream partial JSON; the proxy guarantees a complete, parseable string).
+ */
+export interface ChatToolCall {
+  id: string;
+  name: string;
+  args: string;
 }
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  /** Present on `role: 'assistant'` when the model invoked one or more tools. */
+  toolCalls?: ChatToolCall[];
+  /** Required on `role: 'tool'` — pairs with the `id` from a prior assistant `toolCalls[]`. */
+  toolCallId?: string;
+}
+
+/**
+ * Tool definition exposed to the LLM. `parameters` is a JSON Schema (draft-7)
+ * object — typically generated from a Zod schema via
+ * `llm.toJsonSchema()` from `@livekit/agents`.
+ */
+export interface ChatTool {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+/** Mirrors LiveKit's `ToolChoice` for parity with the agents framework. */
+export type ChatToolChoice =
+  | 'auto'
+  | 'none'
+  | 'required'
+  | { type: 'function'; function: { name: string } };
 
 export interface CompleteParams {
   messages: ChatMessage[];
@@ -158,6 +190,9 @@ export interface CompleteParams {
   temperature?: number;
   maxTokens?: number;
   constraints?: PipelineConstraints;
+  tools?: ChatTool[];
+  toolChoice?: ChatToolChoice;
+  parallelToolCalls?: boolean;
 }
 
 export interface CompleteResult {
@@ -170,6 +205,8 @@ export interface CompleteResult {
   };
   failoverCount: number;
   scoresRunId: string | null;
+  /** Present when the LLM invoked tools instead of (or in addition to) emitting text. */
+  toolCalls?: ChatToolCall[];
 }
 
 // --- Realtime (S2S) ---------------------------------------------------------
