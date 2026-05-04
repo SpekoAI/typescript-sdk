@@ -163,6 +163,13 @@ export interface ChatMessage {
   toolCalls?: ChatToolCall[];
   /** Required on `role: 'tool'` — pairs with the `id` from a prior assistant `toolCalls[]`. */
   toolCallId?: string;
+  /**
+   * Present on `role: 'tool'` when the customer's tool execute() threw or
+   * returned an error. The proxy translates to provider-native error signals
+   * (Anthropic `is_error: true`, OpenAI prefixed content) so the LLM sees the
+   * failure instead of treating the error message as a normal tool result.
+   */
+  isError?: boolean;
 }
 
 /**
