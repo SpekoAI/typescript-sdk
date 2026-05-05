@@ -22,6 +22,8 @@ export type {
   ChatTool,
   ChatToolCall,
   ChatToolChoice,
+  ChatToolExecutionMode,
+  ChatToolSource,
   CompleteParams,
   CompleteResult,
   RealtimeProvider,
