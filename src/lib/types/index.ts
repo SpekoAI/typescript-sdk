@@ -173,14 +173,50 @@ export interface ChatMessage {
 }
 
 /**
+ * Where the tool runs. `inline` (default) preserves the v0.3 behavior —
+ * the SDK / customer worker executes the tool. `webhook` opts into
+ * Speko's server-side execution: the proxy POSTs a Standard-Webhooks-
+ * signed request to your URL, folds the result back into the next
+ * provider turn, and only returns to you when the model emits final
+ * text or hands back an inline tool call. `builtin` reserves a slot
+ * for managed tools (e.g. `search_knowledge_base`) — handlers ship in
+ * a follow-on release.
+ */
+export type ChatToolExecutionMode = 'inline' | 'webhook' | 'builtin';
+
+/**
+ * Source-of-execution config. Required when `executionMode` is
+ * `webhook` or `builtin`. Mirrors the SpekoTool `source` shape inside
+ * `@spekoai/tool-execution`.
+ */
+export type ChatToolSource =
+  | { kind: 'inline' }
+  | {
+      kind: 'webhook';
+      url: string;
+      /** Pointer into Speko's secrets store. Created via `POST /v1/agents/:id/tools` (which encrypts and stores the raw secret). */
+      secretRef: string;
+      headers?: Record<string, string>;
+      timeoutMs?: number;
+    }
+  | { kind: 'builtin'; name: string; config?: unknown };
+
+/**
  * Tool definition exposed to the LLM. `parameters` is a JSON Schema (draft-7)
  * object — typically generated from a Zod schema via
  * `llm.toJsonSchema()` from `@livekit/agents`.
+ *
+ * `executionMode` and `source` are optional and back-compat: omitting
+ * both preserves the v0.3 inline behavior. Set `executionMode: 'webhook'`
+ * with a matching `source: { kind: 'webhook', ... }` to opt into
+ * server-managed execution.
  */
 export interface ChatTool {
   name: string;
   description: string;
   parameters: Record<string, unknown>;
+  executionMode?: ChatToolExecutionMode;
+  source?: ChatToolSource;
 }
 
 /** Mirrors LiveKit's `ToolChoice` for parity with the agents framework. */
@@ -200,6 +236,14 @@ export interface CompleteParams {
   tools?: ChatTool[];
   toolChoice?: ChatToolChoice;
   parallelToolCalls?: boolean;
+  /**
+   * Cap on how many provider hops the proxy may chain when one or more
+   * tools have `executionMode: 'webhook' | 'builtin'`. Each hop is one
+   * provider call. Default 8 server-side, hard cap 16. Ignored when all
+   * tools are inline (the proxy always returns toolCalls verbatim and
+   * the caller drives the loop themselves).
+   */
+  maxToolHops?: number;
 }
 
 export interface CompleteResult {
