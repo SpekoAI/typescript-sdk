@@ -262,7 +262,7 @@ export interface CompleteResult {
 
 // --- Realtime (S2S) ---------------------------------------------------------
 
-export type RealtimeProvider = 'openai' | 'google' | 'xai';
+export type RealtimeProvider = 'openai' | 'google' | 'xai' | 'inworld';
 
 export interface RealtimeToolSpec {
   name: string;
