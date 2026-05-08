@@ -377,6 +377,12 @@ export interface PhoneNumberRow {
   direction: PhoneNumberDirection;
   dispatchMetadataTemplate: Record<string, unknown> | null;
   label: string | null;
+  /**
+   * 1:1 link to a persisted agent. When set, inbound calls hydrate
+   * pipeline config from the agent row instead of (or alongside) the
+   * dispatch_metadata_template.
+   */
+  agentId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -387,12 +393,16 @@ export interface PhoneNumberCreateParams {
   /** LiveKit dispatch metadata template (variables `{{var}}` resolved at dial). */
   dispatchMetadataTemplate?: Record<string, unknown>;
   label?: string;
+  /** 1:1 link to an agent in the same org. */
+  agentId?: string;
 }
 
 export interface PhoneNumberUpdateParams {
   direction?: PhoneNumberDirection;
   dispatchMetadataTemplate?: Record<string, unknown>;
   label?: string;
+  /** Pass `null` to unlink, a string to relink. */
+  agentId?: string | null;
 }
 
 export interface AvailablePhoneNumber {
