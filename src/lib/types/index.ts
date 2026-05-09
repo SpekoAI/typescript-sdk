@@ -426,3 +426,24 @@ export interface PhoneNumberSearchParams {
   /** Max results — Telnyx caps at 50. Default 10. */
   limit?: number;
 }
+
+export type {
+  AgentCall,
+  AgentCallsResponse,
+  AgentCreateParams,
+  AgentEval,
+  AgentEvalRun,
+  AgentRow,
+  AgentVersion,
+  BuildBrainBriefing,
+  BuildBrainInput,
+  BuildBrainOutput,
+  BuildBrainStreamEvent,
+  DeployAgentParams,
+  InferenceInspectRequest,
+  InferenceInspectResponse,
+  InferenceParseConfigRequest,
+  InferenceParseConfigResponse,
+  RollbackAgentParams,
+  SessionConfig,
+} from './platform.js';
