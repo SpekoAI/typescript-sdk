@@ -1,0 +1,7 @@
+{
+  "name": "@spekoai-examples/quickstart-node",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "packages/sdk/examples/quickstart-node/src",
+  "tags": ["scope:public", "type:app", "lang:ts"]
+}
