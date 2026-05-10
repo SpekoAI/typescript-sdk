@@ -1,21 +1,26 @@
 {
-  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "composite": true,
+    "declarationMap": true,
+    "importHelpers": true,
+    "isolatedModules": true,
+    "lib": ["es2022"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "noEmitOnError": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "es2022",
+    "forceConsistentCasingInFileNames": true,
     "rootDir": "src",
     "outDir": "dist",
     "tsBuildInfoFile": ".tsbuildinfo/publish.tsbuildinfo",
-    "emitDeclarationOnly": false,
-    "forceConsistentCasingInFileNames": true,
-    "paths": {
-      "@spekoai/contracts": ["../contracts/src/index.ts"]
-    },
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts", "src/**/test-helpers.ts"],
-  "references": [
-    {
-      "path": "../contracts/tsconfig.lib.json"
-    }
-  ]
+  "references": []
 }

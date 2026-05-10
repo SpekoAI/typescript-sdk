@@ -25,9 +25,6 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": {
-    "speko": "./dist/cli/index.js"
-  },
   "sideEffects": false,
   "files": [
     "dist",
@@ -50,11 +47,7 @@
     "provenance": true
   },
   "dependencies": {
-    "cac": "^6.7.14",
     "tslib": "^2.3.0"
-  },
-  "optionalDependencies": {
-    "keytar": "^7.9.0"
   },
   "devDependencies": {
     "@types/node": "^20",
