@@ -37,6 +37,11 @@ export class Transcribe {
     if (options.constraints) {
       headers['X-Speko-Constraints'] = JSON.stringify(options.constraints);
     }
+    if (options.keywords && options.keywords.length > 0) {
+      headers['X-Speko-Stt-Options'] = JSON.stringify({
+        keywords: [...options.keywords],
+      });
+    }
 
     return this.http.requestRaw<TranscribeResult>(
       'POST',

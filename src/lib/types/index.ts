@@ -113,6 +113,13 @@ export interface TranscribeOptions extends RoutingIntent {
   /** MIME type of the audio body. Defaults to "audio/wav". */
   contentType?: string;
   constraints?: PipelineConstraints;
+  /**
+   * Domain keywords to bias the STT toward. Forwarded to whichever provider
+   * the router picks: Deepgram → `keywords`, AssemblyAI → `keyterms_prompt`
+   * (or `word_boost` on legacy models), OpenAI Whisper → comma-joined prompt,
+   * ElevenLabs Scribe → `biased_keywords`. Casing matters for proper nouns.
+   */
+  keywords?: readonly string[];
 }
 
 export interface TranscribeResult {
