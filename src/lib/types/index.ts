@@ -433,3 +433,222 @@ export interface PhoneNumberSearchParams {
   /** Max results — Telnyx caps at 50. Default 10. */
   limit?: number;
 }
+
+// ─── Agents ──────────────────────────────────────────────────────────
+
+/**
+ * Routing intent for an agent's voice pipeline. Narrower than the
+ * top-level {@link RoutingIntent} — the agents API specifically
+ * accepts `latency`, `quality`, or `cost` (no `balanced` / `accuracy`).
+ */
+export interface AgentIntent {
+  /** BCP-47 language tag, e.g. "en" or "es-MX". */
+  language: string;
+  optimizeFor?: 'latency' | 'quality' | 'cost';
+}
+
+export interface AgentLlmOptions {
+  temperature?: number;
+  maxTokens?: number;
+  model?: string;
+}
+
+export interface AgentStackPreferences {
+  allowedProviders?: {
+    stt?: string[];
+    llm?: string[];
+    tts?: string[];
+    s2s?: string[];
+  };
+}
+
+export interface AgentSttOptions {
+  /** Vocabulary keywords forwarded to whichever STT provider the router picks. */
+  keywords?: string[];
+}
+
+export interface AgentRow {
+  id: string;
+  organizationId: string;
+  name: string;
+  systemPrompt: string;
+  voice: string | null;
+  intent: AgentIntent;
+  llmOptions: AgentLlmOptions | null;
+  stackPreferences: AgentStackPreferences | null;
+  sttOptions: AgentSttOptions | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentCreateParams {
+  name: string;
+  systemPrompt: string;
+  voice?: string;
+  intent: AgentIntent;
+  llmOptions?: AgentLlmOptions;
+  stackPreferences?: AgentStackPreferences;
+  sttOptions?: AgentSttOptions;
+}
+
+export type AgentUpdateParams = Partial<AgentCreateParams>;
+
+// ─── Agent tools ─────────────────────────────────────────────────────
+
+export interface AgentToolSourceInline {
+  kind: 'inline';
+}
+
+/**
+ * Webhook source as sent to {@link AgentTools.create}. The plaintext
+ * `secret` is encrypted server-side; the returned row carries
+ * `secretRef` instead.
+ */
+export interface AgentToolSourceWebhookCreate {
+  kind: 'webhook';
+  url: string;
+  /** Plaintext shared secret. Encrypted server-side at write time. */
+  secret: string;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+}
+
+/**
+ * Webhook source as returned by the API. The plaintext secret never
+ * leaves the server — only the {@link secretRef} pointer is exposed.
+ */
+export interface AgentToolSourceWebhookSerialized {
+  kind: 'webhook';
+  url: string;
+  /** Pointer into Speko's secrets store. */
+  secretRef: string;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+}
+
+export interface AgentToolSourceBuiltin {
+  kind: 'builtin';
+  name: string;
+  config?: unknown;
+}
+
+export type AgentToolSourceCreate =
+  | AgentToolSourceInline
+  | AgentToolSourceWebhookCreate
+  | AgentToolSourceBuiltin;
+
+export type AgentToolSourceSerialized =
+  | AgentToolSourceInline
+  | AgentToolSourceWebhookSerialized
+  | AgentToolSourceBuiltin;
+
+export interface AgentToolRow {
+  id: string;
+  agentId: string;
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  source: AgentToolSourceSerialized;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentToolCreateParams {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  source: AgentToolSourceCreate;
+}
+
+export interface AgentToolUpdateParams {
+  description?: string;
+  parameters?: Record<string, unknown>;
+  source?: AgentToolSourceCreate;
+}
+
+// ─── Knowledge bases ─────────────────────────────────────────────────
+
+export interface KnowledgeBaseRow {
+  id: string;
+  organizationId: string;
+  agentId: string;
+  name: string;
+  description: string | null;
+  embeddingModel: string;
+  documentCount: number;
+  chunkCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KnowledgeBaseCreateParams {
+  agentId: string;
+  name: string;
+  description?: string;
+}
+
+export interface KnowledgeBaseListParams {
+  /** Filter to a single agent's KBs. */
+  agentId?: string;
+}
+
+export type KnowledgeBaseDocumentStatus =
+  | 'pending'
+  | 'processing'
+  | 'ready'
+  | 'failed';
+
+export interface KnowledgeBaseDocumentRow {
+  id: string;
+  knowledgeBaseId: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  status: KnowledgeBaseDocumentStatus;
+  errorMessage: string | null;
+  chunkCount: number;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  ingestedAt: string | null;
+}
+
+export interface KnowledgeBaseDocumentCreateParams {
+  filename: string;
+  /** MIME type. Currently the ingest pipeline accepts `text/plain` and `text/markdown` (plus `text/x-markdown`, `application/x-markdown`). */
+  contentType: string;
+  sizeBytes: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface KnowledgeBaseDocumentUploadSpec {
+  /** Signed GCS URL valid for `expiresInSeconds` from issuance. */
+  url: string;
+  method: 'PUT';
+  /** Headers that MUST be sent on the PUT (Content-Type, length-range, etc.). */
+  headers: Record<string, string>;
+  expiresInSeconds: number;
+}
+
+export interface KnowledgeBaseDocumentCreateResult {
+  document: KnowledgeBaseDocumentRow;
+  upload: KnowledgeBaseDocumentUploadSpec;
+}
+
+/**
+ * Convenience parameter shape for {@link KnowledgeBases.uploadDocument}.
+ * The wrapper computes `sizeBytes` from `data` automatically.
+ */
+export interface KnowledgeBaseDocumentUploadParams {
+  filename: string;
+  contentType: string;
+  data: ArrayBuffer | Uint8Array | Blob;
+  metadata?: Record<string, unknown>;
+}
+
+export interface KnowledgeBaseDocumentPollOptions {
+  /** Polling interval in milliseconds. Default 2000. */
+  intervalMs?: number;
+  /** Total timeout in milliseconds. Default 120000 (2 min). */
+  timeoutMs?: number;
+}
