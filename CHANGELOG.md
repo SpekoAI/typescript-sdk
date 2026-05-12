@@ -1,3 +1,16 @@
+## 0.4.0 (2026-05-12)
+
+### 🚀 Features
+
+- **sdk:** add `KnowledgeBases` resource — `create`, `list`, `get`, `delete`, document CRUD (`listDocuments`, `getDocument`, `createDocument`, `finalizeDocument`, `deleteDocument`), plus ergonomic wrappers `uploadDocument` (3 round-trips collapsed into one) and `pollDocumentReady` (default 2 min timeout). Accessible as `speko.knowledgeBases`.
+- **sdk:** add `Agents` resource — full CRUD plus `attachPhoneNumber` / `detachPhoneNumber` helpers that route through `PATCH /v1/phone-numbers/:id`. Sub-resource `speko.agents.tools` mirrors the `/v1/agents/:agentId/tools` CRUD with typed inline / webhook / builtin source variants.
+- **sdk:** narrower `AgentIntent.optimizeFor` union (`'latency' | 'quality' | 'cost'`) reflecting the actual server schema for agents — distinct from the broader `RoutingIntent.optimizeFor`.
+
+### ❤️ Thank You
+
+- Baymurat785 @Baymurat785
+- Claude Opus 4.7 (1M context)
+
 ## 0.3.0 (2026-05-02)
 
 ### 🚀 Features
