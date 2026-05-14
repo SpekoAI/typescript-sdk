@@ -1,11 +1,14 @@
 import type {
   CompleteParams,
   CompleteResult,
+  CompleteStreamEvent,
   SpekoClientOptions,
   SynthesizeOptions,
   SynthesizeResult,
+  SynthesizeStreamResult,
   TranscribeOptions,
   TranscribeResult,
+  TranscribeStreamEvent,
 } from './types/index.js';
 import { HttpClient } from './http.js';
 import { Usage } from './resources/usage.js';
@@ -89,6 +92,14 @@ export class Speko {
     return this.transcribeResource.call(audio, options, abortSignal);
   }
 
+  transcribeStream(
+    audio: Uint8Array,
+    options: TranscribeOptions,
+    abortSignal?: AbortSignal,
+  ): AsyncIterableIterator<TranscribeStreamEvent> {
+    return this.transcribeResource.stream(audio, options, abortSignal);
+  }
+
   /**
    * Synthesize text into audio. The router picks the best TTS provider and
    * fails over automatically. The result includes the audio bytes plus the
@@ -102,6 +113,14 @@ export class Speko {
     return this.synthesizeResource.call(text, options, abortSignal);
   }
 
+  synthesizeStream(
+    text: string,
+    options: SynthesizeOptions,
+    abortSignal?: AbortSignal,
+  ): Promise<SynthesizeStreamResult> {
+    return this.synthesizeResource.stream(text, options, abortSignal);
+  }
+
   /**
    * Run an LLM completion. The router picks the best LLM provider and fails
    * over automatically.
@@ -111,5 +130,12 @@ export class Speko {
     abortSignal?: AbortSignal,
   ): Promise<CompleteResult> {
     return this.completeResource.call(params, abortSignal);
+  }
+
+  completeStream(
+    params: CompleteParams,
+    abortSignal?: AbortSignal,
+  ): AsyncIterableIterator<CompleteStreamEvent> {
+    return this.completeResource.stream(params, abortSignal);
   }
 }

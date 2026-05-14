@@ -152,6 +152,178 @@ export class HttpClient {
     }
   }
 
+  async *requestSse(
+    method: string,
+    path: string,
+    body: unknown,
+    externalSignal?: AbortSignal,
+    extraHeaders?: Record<string, string>,
+  ): AsyncIterableIterator<{ event: string; data: unknown }> {
+    const url = `${this.baseUrl}${path}`;
+    const { signal, cleanup } = this.buildSignal(externalSignal);
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { ...this.jsonHeaders, ...extraHeaders },
+        body: body ? JSON.stringify(body) : undefined,
+        signal,
+      });
+
+      if (!response.ok) {
+        await this.handleError(response);
+      }
+
+      if (!response.body) {
+        throw new SpekoApiError('Response body is empty', response.status, 'EMPTY_BODY');
+      }
+
+      reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = drainSseEvents(buffer);
+        buffer = events.remainder;
+        for (const event of events.items) {
+          yield event;
+        }
+      }
+
+      buffer += decoder.decode();
+      const events = drainSseEvents(buffer + '\n\n');
+      for (const event of events.items) {
+        yield event;
+      }
+    } finally {
+      reader?.releaseLock();
+      cleanup();
+    }
+  }
+
+  async requestRawSse(
+    method: string,
+    path: string,
+    bodyBytes: Uint8Array,
+    extraHeaders: Record<string, string>,
+    externalSignal?: AbortSignal,
+  ): Promise<AsyncIterableIterator<{ event: string; data: unknown }>> {
+    const url = `${this.baseUrl}${path}`;
+    const { signal, cleanup } = this.buildSignal(externalSignal);
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: this.authHeader,
+        'User-Agent': USER_AGENT,
+        ...extraHeaders,
+      },
+      body: bodyBytes,
+      signal,
+    });
+
+    if (!response.ok) {
+      cleanup();
+      await this.handleError(response);
+    }
+
+    if (!response.body) {
+      cleanup();
+      throw new SpekoApiError('Response body is empty', response.status, 'EMPTY_BODY');
+    }
+
+    return this.readSseBody(response.body, cleanup);
+  }
+
+  async requestBinaryStream(
+    method: string,
+    path: string,
+    body: unknown,
+    externalSignal?: AbortSignal,
+  ): Promise<{ chunks: AsyncIterableIterator<Uint8Array>; headers: Record<string, string> }> {
+    const url = `${this.baseUrl}${path}`;
+    const { signal, cleanup } = this.buildSignal(externalSignal);
+
+    const response = await fetch(url, {
+      method,
+      headers: this.jsonHeaders,
+      body: body ? JSON.stringify(body) : undefined,
+      signal,
+    });
+
+    if (!response.ok) {
+      cleanup();
+      await this.handleError(response);
+    }
+
+    if (!response.body) {
+      cleanup();
+      throw new SpekoApiError('Response body is empty', response.status, 'EMPTY_BODY');
+    }
+
+    const headers: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+
+    return {
+      headers,
+      chunks: this.readBinaryBody(response.body, cleanup),
+    };
+  }
+
+  private async *readSseBody(
+    body: ReadableStream<Uint8Array>,
+    cleanup: () => void,
+  ): AsyncIterableIterator<{ event: string; data: unknown }> {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = drainSseEvents(buffer);
+        buffer = events.remainder;
+        for (const event of events.items) {
+          yield event;
+        }
+      }
+
+      buffer += decoder.decode();
+      const events = drainSseEvents(buffer + '\n\n');
+      for (const event of events.items) {
+        yield event;
+      }
+    } finally {
+      reader.releaseLock();
+      cleanup();
+    }
+  }
+
+  private async *readBinaryBody(
+    body: ReadableStream<Uint8Array>,
+    cleanup: () => void,
+  ): AsyncIterableIterator<Uint8Array> {
+    const reader = body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        yield value;
+      }
+    } finally {
+      reader.releaseLock();
+      cleanup();
+    }
+  }
+
   /**
    * Compose the internal timeout signal with an optional external signal so
    * that callers can cancel in-flight requests (e.g. LiveKit Agents tearing
@@ -214,4 +386,40 @@ export class HttpClient {
 
     throw new SpekoApiError(message, response.status, code);
   }
+}
+
+function drainSseEvents(buffer: string): {
+  items: Array<{ event: string; data: unknown }>;
+  remainder: string;
+} {
+  const items: Array<{ event: string; data: unknown }> = [];
+  let cursor = 0;
+
+  while (true) {
+    const next = buffer.indexOf('\n\n', cursor);
+    if (next === -1) break;
+    const block = buffer.slice(cursor, next);
+    cursor = next + 2;
+    if (!block.trim()) continue;
+
+    let event = 'message';
+    const dataLines: string[] = [];
+    for (const line of block.split(/\r?\n/)) {
+      if (line.startsWith('event:')) {
+        event = line.slice('event:'.length).trim();
+      } else if (line.startsWith('data:')) {
+        dataLines.push(line.slice('data:'.length).trimStart());
+      }
+    }
+    const rawData = dataLines.join('\n');
+    let data: unknown = rawData;
+    try {
+      data = JSON.parse(rawData);
+    } catch {
+      // Keep non-JSON SSE payloads as strings.
+    }
+    items.push({ event, data });
+  }
+
+  return { items, remainder: buffer.slice(cursor) };
 }

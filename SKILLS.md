@@ -68,6 +68,8 @@ const speech = await speko.synthesize('Hello world', {
 - `speko.transcribe(audio: Uint8Array, opts, abortSignal?) -> TranscribeResult`
 - `speko.synthesize(text: string, opts, abortSignal?) -> SynthesizeResult`
 - `speko.complete(params, abortSignal?) -> CompleteResult`
+- Streaming variants:
+  `transcribeStream(...)`, `synthesizeStream(...)`, `completeStream(...)`.
 - `speko.usage.get({ from?, to? }) -> UsageSummary`
 - Errors: `SpekoApiError`, `SpekoAuthError`, `SpekoRateLimitError`.
 - Types: `RoutingIntent`, `OptimizeFor`, `PipelineConstraints`,

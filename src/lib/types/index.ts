@@ -130,6 +130,23 @@ export interface TranscribeResult {
   scoresRunId: string | null;
 }
 
+export type TranscribeStreamEvent =
+  | {
+      type: 'meta';
+      provider: string;
+      model: string;
+      failoverCount: number;
+      scoresRunId: string | null;
+    }
+  | {
+      type: 'transcript';
+      text: string;
+      isFinal: boolean;
+      confidence: number;
+    }
+  | TranscribeResult & { type: 'done' }
+  | { type: 'error'; error: string; code: string };
+
 // --- Synthesize -------------------------------------------------------------
 
 export interface SynthesizeOptions extends RoutingIntent {
@@ -143,6 +160,15 @@ export interface SynthesizeResult {
   /** Raw audio bytes. Format depends on the chosen provider — see `contentType`. */
   audio: Uint8Array;
   /** MIME type of the audio (e.g. "audio/mpeg" for ElevenLabs, "audio/pcm;rate=24000" for Cartesia). */
+  contentType: string;
+  provider: string;
+  model: string;
+  failoverCount: number;
+  scoresRunId: string | null;
+}
+
+export interface SynthesizeStreamResult
+  extends AsyncIterable<Uint8Array> {
   contentType: string;
   provider: string;
   model: string;
@@ -265,6 +291,27 @@ export interface CompleteResult {
   /** Present when the LLM invoked tools instead of (or in addition to) emitting text. */
   toolCalls?: ChatToolCall[];
 }
+
+export type CompleteStreamEvent =
+  | {
+      type: 'meta';
+      provider: string;
+      model: string;
+      failoverCount: number;
+      totalFailoverCount: number;
+      scoresRunId: string | null;
+      hop: number;
+    }
+  | { type: 'delta'; text: string }
+  | (ChatToolCall & { type: 'tool_call' })
+  | {
+      type: 'server_tool_call';
+      id: string;
+      name: string;
+      status: 'started' | 'completed' | 'failed';
+    }
+  | (CompleteResult & { type: 'done' })
+  | { type: 'error'; error: string; code: string };
 
 // --- Realtime (S2S) ---------------------------------------------------------
 

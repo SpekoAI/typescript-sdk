@@ -42,6 +42,9 @@ const { text: reply } = await speko.complete({
   messages: [{ role: 'user', content: 'Hi!' }],
   intent: { language: 'en' },
 });
+
+// Streaming variants are also available:
+// speko.transcribeStream(...), speko.synthesizeStream(...), speko.completeStream(...)
 ```
 
 ## Documentation

@@ -12,6 +12,13 @@
         "command": "eslint src --max-warnings=0"
       }
     },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/sdk",
+        "command": "vitest"
+      }
+    },
     "build-publish": {
       "executor": "nx:run-commands",
       "options": {
