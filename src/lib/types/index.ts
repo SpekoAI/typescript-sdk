@@ -17,9 +17,8 @@ export interface UsageSummary {
   totalMinutes: number;
   totalCost: number;
   breakdown: UsageByProvider[];
-  /** Current organization balance in micro-USD (1_000_000 µ$ = $1), as string. */
-  balanceMicroUsd: string;
   balanceUsd: number;
+  currency: 'USD';
 }
 
 export interface UsageByProvider {
@@ -41,8 +40,8 @@ export interface UsageQueryParams {
 
 /** Current prepaid credit balance. */
 export interface OrganizationBalance {
-  balanceMicroUsd: string;
   balanceUsd: number;
+  currency: 'USD';
   updatedAt: string;
 }
 

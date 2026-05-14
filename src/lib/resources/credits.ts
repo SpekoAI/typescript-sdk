@@ -6,8 +6,7 @@ import type {
 } from '../types/index.js';
 
 /**
- * Prepaid credit balance + append-only ledger. Balance is reported in
- * micro-USD (`1_000_000` µ$ = $1) alongside a float USD helper.
+ * Prepaid credit balance + append-only ledger. Balance is reported in USD.
  */
 export class Credits {
   constructor(private readonly http: HttpClient) {}
