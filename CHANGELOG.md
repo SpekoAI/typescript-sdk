@@ -1,0 +1,73 @@
+## 0.4.0 (2026-05-12)
+
+### 🚀 Features
+
+- **sdk:** add `KnowledgeBases` resource — `create`, `list`, `get`, `delete`, document CRUD (`listDocuments`, `getDocument`, `createDocument`, `finalizeDocument`, `deleteDocument`), plus ergonomic wrappers `uploadDocument` (3 round-trips collapsed into one) and `pollDocumentReady` (default 2 min timeout). Accessible as `speko.knowledgeBases`.
+- **sdk:** add `Agents` resource — full CRUD plus `attachPhoneNumber` / `detachPhoneNumber` helpers that route through `PATCH /v1/phone-numbers/:id`. Sub-resource `speko.agents.tools` mirrors the `/v1/agents/:agentId/tools` CRUD with typed inline / webhook / builtin source variants.
+- **sdk:** narrower `AgentIntent.optimizeFor` union (`'latency' | 'quality' | 'cost'`) reflecting the actual server schema for agents — distinct from the broader `RoutingIntent.optimizeFor`.
+
+### ❤️ Thank You
+
+- Baymurat785 @Baymurat785
+- Claude Opus 4.7 (1M context)
+
+## 0.3.0 (2026-05-02)
+
+### 🚀 Features
+
+- **adapter-livekit:** wire tool calls through /v1/complete ([#105](https://github.com/SpekoAI/platform/pull/105))
+- **dashboard:** /phone-numbers page — buy + edit + release US numbers ([ec3d541](https://github.com/SpekoAI/platform/commit/ec3d541))
+- **telephony:** Telnyx outbound + inbound + phone number CRUD ([c5cc1f0](https://github.com/SpekoAI/platform/commit/c5cc1f0))
+
+### ❤️ Thank You
+
+- Baymurat785 @Baymurat785
+- Claude Opus 4.7 (1M context)
+
+# Changelog
+
+All notable changes to `@spekoai/sdk` will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.2.1] - 2026-04-26
+
+### Added
+
+- `RoutingIntent.region` — optional string forwarded to the gateway as
+  `intent.region`. Set when latency to a specific geography matters
+  (e.g. `'us-east4'`, `'eu-west1'`); STT/TTS rankings differ per
+  region. Omitting it preserves the previous behaviour: the server
+  defaults to `'global'`, which surfaces the region-agnostic (batch)
+  benchmark rows. Plumbed through `transcribe()`, `synthesize()`, and
+  `complete({ intent })`.
+
+## [0.2.0] - 2026-04-26
+
+### Removed
+
+- **BREAKING**: `RoutingIntent.vertical` removed (and the `Vertical`
+  union type along with it). The router now ranks on
+  `(language, optimizeFor)` only. Callers passing `vertical` will fail
+  to type-check; the gateway also rejects the field. Old persisted
+  session pipeline configs containing `vertical` are tolerated server-
+  side.
+
+## [0.0.3] - 2026-04-13
+
+### Fixed
+
+- Add `typescript` + `@types/node` as devDependencies so the mirror publish build (`npm install --no-save` + `npx tsc`) resolves the real compiler instead of the squatter `tsc@2.0.4` npm package.
+
+## [0.0.2] - 2026-04-13
+
+### Changed
+
+- Package scope renamed from `@speko/sdk` to `@spekoai/sdk`.
+
+### Fixed
+
+- Mirror publish workflow now uses trusted-publisher OIDC (Node 24 / npm 11), omits stale `registry-url`, drops deprecated `baseUrl`, and uses `--generate-notes` for GitHub releases from lightweight mirror tags.
