@@ -1,0 +1,123 @@
+import type { HttpClient } from '../http.js';
+import type {
+  AgentCreateParams,
+  AgentRow,
+  AgentToolCreateParams,
+  AgentToolRow,
+  AgentToolUpdateParams,
+  AgentUpdateParams,
+  PhoneNumberRow,
+} from '../types/index.js';
+
+/**
+ * Per-org agent definitions — the system prompt, voice, intent, and
+ * routing constraints used when this agent answers (or places) a call.
+ *
+ * Every agent created via {@link create} auto-provisions a `Default`
+ * knowledge base, so callers can upload documents through
+ * {@link Speko.knowledgeBases} without an extra setup step.
+ *
+ * @example
+ * ```ts
+ * const agent = await speko.agents.create({
+ *   name: 'Support Bot',
+ *   systemPrompt: 'You are a helpful support agent for Acme.',
+ *   voice: 'sophia',
+ *   intent: { language: 'en', optimizeFor: 'latency' },
+ * });
+ *
+ * await speko.agents.attachPhoneNumber(agent.id, num.id);
+ * ```
+ */
+export class Agents {
+  readonly tools: AgentTools;
+
+  constructor(private readonly http: HttpClient) {
+    this.tools = new AgentTools(http);
+  }
+
+  list(): Promise<AgentRow[]> {
+    return this.http.get<AgentRow[]>('/v1/agents');
+  }
+
+  create(params: AgentCreateParams): Promise<AgentRow> {
+    return this.http.post<AgentRow>('/v1/agents', params);
+  }
+
+  get(agentId: string): Promise<AgentRow> {
+    return this.http.get<AgentRow>(`/v1/agents/${encodeURIComponent(agentId)}`);
+  }
+
+  update(agentId: string, params: AgentUpdateParams): Promise<AgentRow> {
+    return this.http.patch<AgentRow>(`/v1/agents/${encodeURIComponent(agentId)}`, params);
+  }
+
+  delete(agentId: string): Promise<{ deleted: boolean }> {
+    return this.http.delete<{ deleted: boolean }>(`/v1/agents/${encodeURIComponent(agentId)}`);
+  }
+
+  /**
+   * Bind a phone number to this agent so inbound calls hydrate the
+   * agent's pipeline config from the agent row. Internally calls
+   * `PATCH /v1/phone-numbers/:id` with `{ agentId }`.
+   */
+  attachPhoneNumber(agentId: string, phoneNumberId: string): Promise<PhoneNumberRow> {
+    return this.http.patch<PhoneNumberRow>(
+      `/v1/phone-numbers/${encodeURIComponent(phoneNumberId)}`,
+      { agentId },
+    );
+  }
+
+  /**
+   * Unlink a phone number from any agent. Inbound calls fall back to
+   * the number's `dispatchMetadataTemplate` (or fail if neither is
+   * configured). Internally calls `PATCH /v1/phone-numbers/:id` with
+   * `{ agentId: null }`.
+   */
+  detachPhoneNumber(phoneNumberId: string): Promise<PhoneNumberRow> {
+    return this.http.patch<PhoneNumberRow>(
+      `/v1/phone-numbers/${encodeURIComponent(phoneNumberId)}`,
+      { agentId: null },
+    );
+  }
+}
+
+/**
+ * Per-agent tool definitions exposed to the LLM mid-call. Three
+ * execution modes: `inline` (caller runs the tool), `webhook`
+ * (Speko POSTs to your URL with a Standard-Webhooks signature), and
+ * `builtin` (Speko-managed tools like `search_knowledge_base`).
+ *
+ * Webhook secrets are encrypted server-side at creation; the returned
+ * row carries a `secretRef` pointer instead of the plaintext.
+ */
+export class AgentTools {
+  constructor(private readonly http: HttpClient) {}
+
+  list(agentId: string): Promise<AgentToolRow[]> {
+    return this.http.get<AgentToolRow[]>(`/v1/agents/${encodeURIComponent(agentId)}/tools`);
+  }
+
+  create(agentId: string, params: AgentToolCreateParams): Promise<AgentToolRow> {
+    return this.http.post<AgentToolRow>(`/v1/agents/${encodeURIComponent(agentId)}/tools`, params);
+  }
+
+  get(agentId: string, toolId: string): Promise<AgentToolRow> {
+    return this.http.get<AgentToolRow>(
+      `/v1/agents/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}`,
+    );
+  }
+
+  update(agentId: string, toolId: string, params: AgentToolUpdateParams): Promise<AgentToolRow> {
+    return this.http.patch<AgentToolRow>(
+      `/v1/agents/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}`,
+      params,
+    );
+  }
+
+  delete(agentId: string, toolId: string): Promise<{ deleted: boolean }> {
+    return this.http.delete<{ deleted: boolean }>(
+      `/v1/agents/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}`,
+    );
+  }
+}
