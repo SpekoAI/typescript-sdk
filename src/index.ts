@@ -1,6 +1,8 @@
 export { Speko } from './lib/client.js';
 export { SpekoApiError, SpekoAuthError, SpekoRateLimitError } from './lib/errors.js';
 export type {
+  AgentAmbientClip,
+  AgentBackgroundAudio,
   AgentCreateParams,
   AgentIntent,
   AgentLlmOptions,

@@ -520,6 +520,28 @@ export interface AgentSttOptions {
   keywords?: string[];
 }
 
+/**
+ * Built-in ambience clip ids shipped by `@livekit/agents`. Custom clip
+ * uploads are intentionally not yet supported — pinning to the built-ins
+ * keeps the v1 API simple and lets the worker map straight to the
+ * `BuiltinAudioClip` enum.
+ */
+export type AgentAmbientClip = 'office-ambience' | 'keyboard-typing' | 'keyboard-typing2';
+
+/**
+ * Per-agent background audio. Today only ambient (continuous loop) is
+ * supported. The ambience plays on a separate LiveKit audio track mixed
+ * server-side, so it reaches both browser (WebRTC) and phone (SIP) callers
+ * without any client-side change.
+ */
+export interface AgentBackgroundAudio {
+  ambient?: {
+    clip: AgentAmbientClip;
+    /** Linear gain in [0, 1]. Defaults to 1.0 (clip's natural level). */
+    volume?: number;
+  };
+}
+
 export interface AgentRow {
   id: string;
   organizationId: string;
@@ -530,6 +552,7 @@ export interface AgentRow {
   llmOptions: AgentLlmOptions | null;
   stackPreferences: AgentStackPreferences | null;
   sttOptions: AgentSttOptions | null;
+  backgroundAudio: AgentBackgroundAudio | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -542,6 +565,7 @@ export interface AgentCreateParams {
   llmOptions?: AgentLlmOptions;
   stackPreferences?: AgentStackPreferences;
   sttOptions?: AgentSttOptions;
+  backgroundAudio?: AgentBackgroundAudio;
 }
 
 export type AgentUpdateParams = Partial<AgentCreateParams>;
