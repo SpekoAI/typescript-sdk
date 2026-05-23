@@ -9,8 +9,8 @@ import type {
 } from '../types/index.js';
 
 /**
- * Phone numbers Speko has provisioned through Telnyx or registered from
- * your own SIP trunk. Each number can be used for outbound dialing
+ * Phone numbers Speko has provisioned as managed numbers or registered
+ * from your own SIP trunk. Each number can be used for outbound dialing
  * and/or inbound, and carries an optional metadata template that's
  * merged into the worker dispatch payload when the number is used.
  *
@@ -39,7 +39,7 @@ export class PhoneNumbers {
   }
 
   /**
-   * Search Telnyx's pool for orderable US numbers. Filter by area code
+   * Search the platform-managed pool for orderable US numbers. Filter by area code
    * and/or locality. Results include cost so you can preview "$1 upfront +
    * $1/month" before committing to {@link create}.
    *

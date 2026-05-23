@@ -426,7 +426,7 @@ export interface VoiceDialResult {
   sessionId: string;
   callControlId: string;
   roomName: string;
-  /** 'dialing' on a real call, 'dialing-stub' if Telnyx isn't configured. */
+  /** 'dialing' on a real call, 'dialing-stub' if managed telephony isn't configured. */
   status: 'dialing' | 'dialing-stub';
   to: string;
   from: string;
@@ -435,13 +435,16 @@ export interface VoiceDialResult {
 // ─── Phone numbers ───────────────────────────────────────────────────
 
 export type PhoneNumberDirection = 'inbound' | 'outbound' | 'both';
-export type PhoneNumberSource = 'telnyx' | 'sip_trunk';
+export type PhoneNumberSource = 'managed' | 'sip_trunk' | 'telnyx';
 
 export interface PhoneNumberRow {
   id: string;
   organizationId: string;
   e164: string;
   source: PhoneNumberSource;
+  /** Platform-neutral resource id for a platform-managed number. */
+  providerResourceId: string | null;
+  /** @deprecated Use `providerResourceId`. */
   telnyxPhoneNumberId: string | null;
   sipTrunkId: string | null;
   sipProviderName: string | null;
@@ -464,7 +467,7 @@ export interface PhoneNumberRow {
 export interface PhoneNumberCreateParams {
   e164: string;
   direction?: PhoneNumberDirection;
-  /** LiveKit dispatch metadata template (variables `{{var}}` resolved at dial). */
+  /** Dispatch metadata template (variables `{{var}}` resolved at dial). */
   dispatchMetadataTemplate?: Record<string, unknown>;
   label?: string;
   /** 1:1 link to an agent in the same org. */
@@ -473,12 +476,12 @@ export interface PhoneNumberCreateParams {
 
 export interface PhoneNumberImportSipTrunkParams {
   e164: string;
-  /** LiveKit SIP outbound trunk id (for example `ST_...`). */
+  /** SIP outbound trunk id (for example `ST_...`). */
   sipTrunkId: string;
   /** Optional provider/account label for display. */
   sipProviderName?: string;
   direction?: PhoneNumberDirection;
-  /** LiveKit dispatch metadata template (variables `{{var}}` resolved at dial). */
+  /** Dispatch metadata template (variables `{{var}}` resolved at dial). */
   dispatchMetadataTemplate?: Record<string, unknown>;
   label?: string;
   /** 1:1 link to an agent in the same org. */
@@ -511,7 +514,7 @@ export interface PhoneNumberSearchParams {
   areaCode?: string;
   /** Optional locality filter, e.g. "San Francisco". */
   locality?: string;
-  /** Max results — Telnyx caps at 50. Default 10. */
+  /** Max results. Default 10. */
   limit?: number;
 }
 
@@ -549,7 +552,7 @@ export interface AgentSttOptions {
 }
 
 /**
- * Built-in ambience clip ids shipped by `@livekit/agents`. Custom clip
+ * Built-in ambience clip ids supported by the hosted worker. Custom clip
  * uploads are intentionally not yet supported — pinning to the built-ins
  * keeps the v1 API simple and lets the worker map straight to the
  * `BuiltinAudioClip` enum.
@@ -558,7 +561,7 @@ export type AgentAmbientClip = 'office-ambience' | 'keyboard-typing' | 'keyboard
 
 /**
  * Per-agent background audio. Today only ambient (continuous loop) is
- * supported. The ambience plays on a separate LiveKit audio track mixed
+ * supported. The ambience plays on a separate media track mixed
  * server-side, so it reaches both browser (WebRTC) and phone (SIP) callers
  * without any client-side change.
  */
