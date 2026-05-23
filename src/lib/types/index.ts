@@ -204,15 +204,15 @@ export interface ChatMessage {
  * Speko's server-side execution: the proxy POSTs a Standard-Webhooks-
  * signed request to your URL, folds the result back into the next
  * provider turn, and only returns to you when the model emits final
- * text or hands back an inline tool call. `builtin` reserves a slot
- * for managed tools (e.g. `search_knowledge_base`) — handlers ship in
- * a follow-on release.
+ * text or hands back an inline tool call. `builtin` runs Speko-managed
+ * primitives (e.g. `search_knowledge_base`). `integration` runs an
+ * org-installed Speko app action such as Google Calendar or Slack.
  */
-export type ChatToolExecutionMode = 'inline' | 'webhook' | 'builtin';
+export type ChatToolExecutionMode = 'inline' | 'webhook' | 'builtin' | 'integration';
 
 /**
  * Source-of-execution config. Required when `executionMode` is
- * `webhook` or `builtin`. Mirrors the SpekoTool `source` shape inside
+ * `webhook`, `builtin`, or `integration`. Mirrors the SpekoTool `source` shape inside
  * `@spekoai/tool-execution`.
  */
 export type ChatToolSource =
@@ -225,7 +225,14 @@ export type ChatToolSource =
       headers?: Record<string, string>;
       timeoutMs?: number;
     }
-  | { kind: 'builtin'; name: string; config?: unknown };
+  | { kind: 'builtin'; name: string; config?: unknown }
+  | {
+      kind: 'integration';
+      installationId: string;
+      appKey: string;
+      actionKey: string;
+      config?: unknown;
+    };
 
 /**
  * Tool definition exposed to the LLM. `parameters` is a JSON Schema (draft-7)
@@ -234,8 +241,8 @@ export type ChatToolSource =
  *
  * `executionMode` and `source` are optional and back-compat: omitting
  * both preserves the v0.3 inline behavior. Set `executionMode: 'webhook'`
- * with a matching `source: { kind: 'webhook', ... }` to opt into
- * server-managed execution.
+ * with a matching `source: { kind: 'webhook', ... }` or
+ * `source: { kind: 'integration', ... }` to opt into server-managed execution.
  */
 export interface ChatTool {
   name: string;
