@@ -2,16 +2,17 @@ import type { HttpClient } from '../http.js';
 import type {
   AvailablePhoneNumber,
   PhoneNumberCreateParams,
+  PhoneNumberImportSipTrunkParams,
   PhoneNumberRow,
   PhoneNumberSearchParams,
   PhoneNumberUpdateParams,
 } from '../types/index.js';
 
 /**
- * Phone numbers Speko has provisioned (or imported) on Telnyx for your
- * organization. Each number can be used for outbound dialing and/or
- * inbound, and carries an optional metadata template that's merged into
- * the worker dispatch payload when the number is used.
+ * Phone numbers Speko has provisioned through Telnyx or registered from
+ * your own SIP trunk. Each number can be used for outbound dialing
+ * and/or inbound, and carries an optional metadata template that's
+ * merged into the worker dispatch payload when the number is used.
  *
  * @example
  * ```ts
@@ -65,6 +66,10 @@ export class PhoneNumbers {
 
   create(params: PhoneNumberCreateParams): Promise<PhoneNumberRow> {
     return this.http.post<PhoneNumberRow>('/v1/phone-numbers', params);
+  }
+
+  importSipTrunk(params: PhoneNumberImportSipTrunkParams): Promise<PhoneNumberRow> {
+    return this.http.post<PhoneNumberRow>('/v1/phone-numbers/import', params);
   }
 
   update(id: string, params: PhoneNumberUpdateParams): Promise<PhoneNumberRow> {

@@ -428,12 +428,16 @@ export interface VoiceDialResult {
 // ─── Phone numbers ───────────────────────────────────────────────────
 
 export type PhoneNumberDirection = 'inbound' | 'outbound' | 'both';
+export type PhoneNumberSource = 'telnyx' | 'sip_trunk';
 
 export interface PhoneNumberRow {
   id: string;
   organizationId: string;
   e164: string;
+  source: PhoneNumberSource;
   telnyxPhoneNumberId: string | null;
+  sipTrunkId: string | null;
+  sipProviderName: string | null;
   direction: PhoneNumberDirection;
   dispatchMetadataTemplate: Record<string, unknown> | null;
   label: string | null;
@@ -443,12 +447,29 @@ export interface PhoneNumberRow {
    * dispatch_metadata_template.
    */
   agentId: string | null;
+  nextChargeAt: string;
+  lastChargedAt: string | null;
+  suspendedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface PhoneNumberCreateParams {
   e164: string;
+  direction?: PhoneNumberDirection;
+  /** LiveKit dispatch metadata template (variables `{{var}}` resolved at dial). */
+  dispatchMetadataTemplate?: Record<string, unknown>;
+  label?: string;
+  /** 1:1 link to an agent in the same org. */
+  agentId?: string;
+}
+
+export interface PhoneNumberImportSipTrunkParams {
+  e164: string;
+  /** LiveKit SIP outbound trunk id (for example `ST_...`). */
+  sipTrunkId: string;
+  /** Optional provider/account label for display. */
+  sipProviderName?: string;
   direction?: PhoneNumberDirection;
   /** LiveKit dispatch metadata template (variables `{{var}}` resolved at dial). */
   dispatchMetadataTemplate?: Record<string, unknown>;
