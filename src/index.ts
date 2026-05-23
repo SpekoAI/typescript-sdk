@@ -71,6 +71,10 @@ export type {
   UsageByProvider,
   UsageQueryParams,
   UsageSummary,
+  VoiceCatalogEntry,
   VoiceDialParams,
   VoiceDialResult,
+  VoicesListParams,
+  VoicesListResult,
+  VoicesProviderEntry,
 } from './lib/types/index.js';

@@ -147,6 +147,15 @@ export type TranscribeStreamEvent =
 export interface SynthesizeOptions extends RoutingIntent {
   /** Optional voice override. Otherwise the SDK uses each provider's default. */
   voice?: string;
+  /**
+   * Optional upstream model name to use for synthesis (e.g.
+   * `eleven_multilingual_v2`, `sonic-2`, `gpt-4o-mini-tts`,
+   * `qwen3-tts-flash`). When omitted, the router picks the best-ranked
+   * model for the chosen provider. When set, applies to the primary
+   * candidate only — failover candidates still use the selector's model
+   * so a model intended for provider A isn't sent to provider B.
+   */
+  model?: string;
   speed?: number;
   constraints?: PipelineConstraints;
 }
@@ -168,6 +177,42 @@ export interface SynthesizeStreamResult extends AsyncIterable<Uint8Array> {
   model: string;
   failoverCount: number;
   scoresRunId: string | null;
+}
+
+// --- Voices (TTS catalog) ---------------------------------------------------
+
+export interface VoiceCatalogEntry {
+  /** Routing-key vendor (matches `allowedProviders.tts` entries). */
+  vendor: string;
+  /** Voice id passed through to the provider's TTS API. */
+  id: string;
+  /** Human-readable label. */
+  name: string;
+}
+
+export interface VoicesProviderEntry {
+  key: string;
+  name: string;
+  models: readonly string[];
+  /**
+   * `true` when the provider's voice library is account-scoped and must
+   * be fetched live from the provider (currently only ElevenLabs).
+   */
+  voicesFetchedLive: boolean;
+}
+
+export interface VoicesListResult {
+  voices: readonly VoiceCatalogEntry[];
+  providers: readonly VoicesProviderEntry[];
+}
+
+export interface VoicesListParams {
+  /**
+   * Filter to a single provider's voices. Accepts either the routing key
+   * (`cartesia`, `xai`, `alibaba`, `openai`, `inworld`, `elevenlabs`) or the
+   * catalog suffix form (`xai-tts`, `alibaba-tts`, `openai-tts`).
+   */
+  provider?: string;
 }
 
 // --- Complete (LLM) ---------------------------------------------------------

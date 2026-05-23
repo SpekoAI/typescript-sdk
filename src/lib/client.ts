@@ -9,6 +9,7 @@ import { Synthesize } from './resources/synthesize.js';
 import { Transcribe } from './resources/transcribe.js';
 import { Usage } from './resources/usage.js';
 import { Voice } from './resources/voice.js';
+import { Voices } from './resources/voices.js';
 import type {
   CompleteParams,
   CompleteResult,
@@ -44,6 +45,7 @@ export class Speko {
   readonly credits: Credits;
   readonly realtime: Realtime;
   readonly voice: Voice;
+  readonly voices: Voices;
   readonly phoneNumbers: PhoneNumbers;
   readonly agents: Agents;
   readonly knowledgeBases: KnowledgeBases;
@@ -67,6 +69,7 @@ export class Speko {
     this.credits = new Credits(http);
     this.realtime = new Realtime(http);
     this.voice = new Voice(http);
+    this.voices = new Voices(http);
     this.phoneNumbers = new PhoneNumbers(http);
     this.agents = new Agents(http);
     this.knowledgeBases = new KnowledgeBases(http);
