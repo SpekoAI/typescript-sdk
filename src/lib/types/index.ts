@@ -446,7 +446,9 @@ export interface PhoneNumberRow {
   providerResourceId: string | null;
   /** @deprecated Use `providerResourceId`. */
   telnyxPhoneNumberId: string | null;
+  /** @deprecated LiveKit trunk IDs are internal and no longer exposed. */
   sipTrunkId: string | null;
+  sipConnectionInstallationId: string | null;
   sipProviderName: string | null;
   direction: PhoneNumberDirection;
   dispatchMetadataTemplate: Record<string, unknown> | null;
@@ -476,8 +478,8 @@ export interface PhoneNumberCreateParams {
 
 export interface PhoneNumberImportSipTrunkParams {
   e164: string;
-  /** SIP outbound trunk id (for example `ST_...`). */
-  sipTrunkId: string;
+  /** Installed SIP connection integration id. */
+  sipConnectionInstallationId: string;
   /** Optional provider/account label for display. */
   sipProviderName?: string;
   direction?: PhoneNumberDirection;
