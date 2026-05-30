@@ -6,6 +6,7 @@ import type {
   AgentToolRow,
   AgentToolUpdateParams,
   AgentUpdateParams,
+  ChatTool,
   PhoneNumberRow,
 } from '../types/index.js';
 
@@ -83,41 +84,95 @@ export class Agents {
 }
 
 /**
- * Per-agent tool definitions exposed to the LLM mid-call. Three
- * execution modes: `inline` (caller runs the tool), `webhook`
- * (Speko POSTs to your URL with a Standard-Webhooks signature), and
- * `builtin` (Speko-managed tools like `search_knowledge_base`).
+ * Per-agent tool definitions exposed to the LLM mid-call. Four execution
+ * modes: `inline` (caller runs the tool), `webhook` (Speko POSTs to your URL
+ * with a Standard-Webhooks signature), `builtin` (Speko-managed tools like
+ * `search_knowledge_base`), and `integration` (an org-installed Speko app
+ * action such as Google Calendar or Slack).
  *
  * Webhook secrets are encrypted server-side at creation; the returned
  * row carries a `secretRef` pointer instead of the plaintext.
+ *
+ * Every method accepts an optional trailing `AbortSignal` to cancel the
+ * in-flight request — useful when a calling framework tears down a session
+ * mid-call.
  */
 export class AgentTools {
   constructor(private readonly http: HttpClient) {}
 
-  list(agentId: string): Promise<AgentToolRow[]> {
-    return this.http.get<AgentToolRow[]>(`/v1/agents/${encodeURIComponent(agentId)}/tools`);
-  }
-
-  create(agentId: string, params: AgentToolCreateParams): Promise<AgentToolRow> {
-    return this.http.post<AgentToolRow>(`/v1/agents/${encodeURIComponent(agentId)}/tools`, params);
-  }
-
-  get(agentId: string, toolId: string): Promise<AgentToolRow> {
-    return this.http.get<AgentToolRow>(
-      `/v1/agents/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}`,
+  list(agentId: string, abortSignal?: AbortSignal): Promise<AgentToolRow[]> {
+    return this.http.get<AgentToolRow[]>(
+      `/v1/agents/${encodeURIComponent(agentId)}/tools`,
+      abortSignal,
     );
   }
 
-  update(agentId: string, toolId: string, params: AgentToolUpdateParams): Promise<AgentToolRow> {
+  create(
+    agentId: string,
+    params: AgentToolCreateParams,
+    abortSignal?: AbortSignal,
+  ): Promise<AgentToolRow> {
+    return this.http.post<AgentToolRow>(
+      `/v1/agents/${encodeURIComponent(agentId)}/tools`,
+      params,
+      abortSignal,
+    );
+  }
+
+  get(agentId: string, toolId: string, abortSignal?: AbortSignal): Promise<AgentToolRow> {
+    return this.http.get<AgentToolRow>(
+      `/v1/agents/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}`,
+      abortSignal,
+    );
+  }
+
+  update(
+    agentId: string,
+    toolId: string,
+    params: AgentToolUpdateParams,
+    abortSignal?: AbortSignal,
+  ): Promise<AgentToolRow> {
     return this.http.patch<AgentToolRow>(
       `/v1/agents/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}`,
       params,
+      abortSignal,
     );
   }
 
-  delete(agentId: string, toolId: string): Promise<{ deleted: boolean }> {
+  delete(
+    agentId: string,
+    toolId: string,
+    abortSignal?: AbortSignal,
+  ): Promise<{ deleted: boolean }> {
     return this.http.delete<{ deleted: boolean }>(
       `/v1/agents/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}`,
+      abortSignal,
     );
   }
+
+  /**
+   * Fetch this agent's registered tools and convert them into the
+   * {@link ChatTool}[] shape that {@link Speko.complete} accepts. Handles all
+   * four source kinds (`inline`, `webhook`, `builtin`, `integration`) — load
+   * once and pass the result straight to `speko.complete({ tools })`.
+   */
+  async listChatTools(agentId: string, abortSignal?: AbortSignal): Promise<ChatTool[]> {
+    const rows = await this.list(agentId, abortSignal);
+    return rows.map(toChatTool);
+  }
+}
+
+/**
+ * Convert a serialized {@link AgentToolRow} into a {@link ChatTool}. The row's
+ * `source` is structurally identical to `ChatToolSource` for every kind, so the
+ * mapping is a direct passthrough; `executionMode` is derived from `source.kind`.
+ */
+function toChatTool(row: AgentToolRow): ChatTool {
+  return {
+    name: row.name,
+    description: row.description,
+    parameters: row.parameters,
+    executionMode: row.source.kind,
+    source: row.source,
+  };
 }

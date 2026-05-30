@@ -45,6 +45,37 @@ const { text: reply } = await speko.complete({
 // speko.transcribeStream(...), speko.synthesizeStream(...), speko.completeStream(...)
 ```
 
+> The client accepts `baseURL` as an alias for `baseUrl` — e.g.
+> `new Speko({ apiKey, baseURL: process.env.SPEKO_BASE_URL })`. If both are set,
+> `baseUrl` wins.
+
+## Registered tools
+
+Tools registered against an agent (via `speko.agents.tools.create(...)` or the
+dashboard) can be loaded and handed straight to `complete()`.
+`listChatTools(agentId)` fetches the agent's tools and converts every source
+kind — `inline`, `webhook`, `builtin`, and `integration` — into the
+`ChatTool[]` shape `complete()` expects:
+
+```ts
+const speko = new Speko({
+  apiKey: process.env.SPEKO_API_KEY,
+  baseURL: process.env.SPEKO_BASE_URL,
+});
+
+// Fetch once, then pass straight to complete()
+const tools = await speko.agents.tools.listChatTools(agentId);
+
+const { text, toolCalls } = await speko.complete({
+  messages: [{ role: 'user', content: 'Book me a slot tomorrow at 3pm' }],
+  intent: { language: 'en' },
+  tools,
+});
+```
+
+Webhook, builtin, and integration tools run server-side and are folded back into
+the response; inline tools come back to you as `toolCalls` to execute yourself.
+
 ## Documentation
 
 Full API reference and guides: <https://docs.speko.dev>

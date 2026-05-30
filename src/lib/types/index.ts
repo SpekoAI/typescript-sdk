@@ -4,6 +4,8 @@ export interface SpekoClientOptions {
   apiKey: string;
   /** Base URL of the Speko API. Defaults to https://api.speko.dev */
   baseUrl?: string;
+  /** Alias for {@link SpekoClientOptions.baseUrl}. If both are set, `baseUrl` wins. */
+  baseURL?: string;
   /** Request timeout in milliseconds. Defaults to 30000. */
   timeout?: number;
 }
@@ -687,15 +689,51 @@ export interface AgentToolSourceBuiltin {
   config?: unknown;
 }
 
+/**
+ * Integration source — binds the tool to an org-installed Speko app action
+ * (e.g. Google Calendar `create_event`). Speko resolves the installation and
+ * runs the action server-side at completion time. The shape is identical on
+ * create and in the serialized row (there is no secret to strip).
+ */
+export interface AgentToolSourceIntegration {
+  kind: 'integration';
+  installationId: string;
+  appKey: string;
+  actionKey: string;
+  config?: unknown;
+}
+
+/**
+ * Webhook source as sent to {@link AgentTools.update}. Unlike the create
+ * shape, `secret` is optional: omit it to keep the existing encrypted secret
+ * untouched, or supply a new one to rotate it.
+ */
+export interface AgentToolSourceWebhookUpdate {
+  kind: 'webhook';
+  url: string;
+  /** Plaintext shared secret. Omit to keep the existing stored secret; supply to rotate. */
+  secret?: string;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+}
+
 export type AgentToolSourceCreate =
   | AgentToolSourceInline
   | AgentToolSourceWebhookCreate
-  | AgentToolSourceBuiltin;
+  | AgentToolSourceBuiltin
+  | AgentToolSourceIntegration;
 
 export type AgentToolSourceSerialized =
   | AgentToolSourceInline
   | AgentToolSourceWebhookSerialized
-  | AgentToolSourceBuiltin;
+  | AgentToolSourceBuiltin
+  | AgentToolSourceIntegration;
+
+export type AgentToolSourceUpdate =
+  | AgentToolSourceInline
+  | AgentToolSourceWebhookUpdate
+  | AgentToolSourceBuiltin
+  | AgentToolSourceIntegration;
 
 export interface AgentToolRow {
   id: string;
@@ -718,7 +756,7 @@ export interface AgentToolCreateParams {
 export interface AgentToolUpdateParams {
   description?: string;
   parameters?: Record<string, unknown>;
-  source?: AgentToolSourceCreate;
+  source?: AgentToolSourceUpdate;
 }
 
 // ─── Knowledge bases ─────────────────────────────────────────────────

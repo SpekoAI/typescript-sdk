@@ -60,7 +60,7 @@ export class Speko {
     }
 
     const http = new HttpClient({
-      baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
+      baseUrl: options.baseUrl ?? options.baseURL ?? DEFAULT_BASE_URL,
       apiKey: options.apiKey,
       timeout: options.timeout ?? DEFAULT_TIMEOUT,
     });

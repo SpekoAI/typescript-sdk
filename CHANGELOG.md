@@ -33,6 +33,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `speko.agents.tools.listChatTools(agentId)` — fetches an agent's registered
+  tools and converts them into the `ChatTool[]` shape `complete()` accepts.
+  Covers all four source kinds (`inline`, `webhook`, `builtin`, `integration`),
+  so the result can be passed straight to `speko.complete({ tools })`.
+- `baseURL` is now accepted as an alias for `baseUrl` on the client constructor.
+  If both are set, `baseUrl` wins.
+- Agent tool methods (`speko.agents.tools.*`) accept an optional trailing
+  `AbortSignal` to cancel the in-flight request.
+- `integration` tool source support: new `AgentToolSourceIntegration` type, added
+  to `AgentToolSourceCreate` and `AgentToolSourceSerialized`. Binds a tool to an
+  org-installed Speko app action (e.g. Google Calendar, Slack).
+- `AgentToolSourceWebhookUpdate` / `AgentToolSourceUpdate` types: webhook updates
+  may now omit `secret` to keep the existing encrypted secret (only supply it to
+  rotate). `AgentToolUpdateParams.source` uses the new update union.
+
 ## [0.2.1] - 2026-04-26
 
 ### Added
