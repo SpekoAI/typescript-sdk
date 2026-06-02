@@ -252,7 +252,8 @@ export interface ChatMessage {
  * signed request to your URL, folds the result back into the next
  * provider turn, and only returns to you when the model emits final
  * text or hands back an inline tool call. `builtin` runs Speko-managed
- * primitives (e.g. `search_knowledge_base`). `integration` runs an
+ * primitives (e.g. `search_knowledge_base`, `transfer_call`, `end_call`).
+ * `integration` runs an
  * org-installed Speko app action such as Google Calendar or Slack.
  */
 export type ChatToolExecutionMode = 'inline' | 'webhook' | 'builtin' | 'integration';
@@ -271,6 +272,10 @@ export type ChatToolSource =
       secretRef: string;
       headers?: Record<string, string>;
       timeoutMs?: number;
+      /** `async` returns `asyncAck` immediately while Speko dispatches the webhook in the background. */
+      responseMode?: 'sync' | 'async';
+      /** LLM-facing acknowledgement used when `responseMode` is `async`. */
+      asyncAck?: string;
     }
   | { kind: 'builtin'; name: string; config?: unknown }
   | {
@@ -476,6 +481,14 @@ export interface VoiceDialParams {
   llm?: { temperature?: number; maxTokens?: number };
   ttsOptions?: { sampleRate?: number; speed?: number };
   sttOptions?: { keywords?: string[] };
+  /** Optional per-call SIP routing hints. Carrier AMD requires trunk/provider support. */
+  telephony?: {
+    region?: string;
+    amd?: {
+      mode?: 'agent' | 'carrier' | 'disabled';
+      timeoutSeconds?: number;
+    };
+  };
   /** Free-form metadata round-tripped to your webhooks. */
   metadata?: Record<string, unknown>;
 }
@@ -644,12 +657,19 @@ export interface AgentBackgroundAudio {
   };
 }
 
+export interface AgentSpeechNormalization {
+  pronunciationDictionary?: Record<string, string>;
+  textReplacements?: Record<string, string>;
+}
+
 export interface AgentLifecycleWebhookCreate {
   url: string;
   /** Plaintext Standard-Webhooks signing secret. Encrypted server-side. */
   secret: string;
   headers?: Record<string, string>;
   timeoutMs?: number;
+  responseMode?: 'sync' | 'async';
+  asyncAck?: string;
 }
 
 export interface AgentLifecycleWebhookUpdate {
@@ -658,6 +678,8 @@ export interface AgentLifecycleWebhookUpdate {
   secret?: string;
   headers?: Record<string, string>;
   timeoutMs?: number;
+  responseMode?: 'sync' | 'async';
+  asyncAck?: string;
 }
 
 export interface AgentLifecycleWebhookSerialized {
@@ -665,6 +687,8 @@ export interface AgentLifecycleWebhookSerialized {
   secretRef: string;
   headers?: Record<string, string>;
   timeoutMs?: number;
+  responseMode?: 'sync' | 'async';
+  asyncAck?: string;
 }
 
 export interface AgentWebhooksSerialized {
@@ -696,6 +720,7 @@ export interface AgentRow {
   stackPreferences: AgentStackPreferences | null;
   sttOptions: AgentSttOptions | null;
   backgroundAudio: AgentBackgroundAudio | null;
+  speechNormalization: AgentSpeechNormalization | null;
   webhooks: AgentWebhooksSerialized | null;
   createdAt: string;
   updatedAt: string;
@@ -710,6 +735,7 @@ export interface AgentCreateParams {
   stackPreferences?: AgentStackPreferences;
   sttOptions?: AgentSttOptions;
   backgroundAudio?: AgentBackgroundAudio;
+  speechNormalization?: AgentSpeechNormalization;
   webhooks?: AgentWebhooksCreate;
 }
 

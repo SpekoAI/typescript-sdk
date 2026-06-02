@@ -87,8 +87,8 @@ export class Agents {
  * Per-agent tool definitions exposed to the LLM mid-call. Four execution
  * modes: `inline` (caller runs the tool), `webhook` (Speko POSTs to your URL
  * with a Standard-Webhooks signature), `builtin` (Speko-managed tools like
- * `search_knowledge_base`), and `integration` (an org-installed Speko app
- * action such as Google Calendar or Slack).
+ * `search_knowledge_base`, `transfer_call`, `end_call`), and `integration`
+ * (an org-installed Speko app action such as Google Calendar or Slack).
  *
  * Webhook secrets are encrypted server-side at creation; the returned
  * row carries a `secretRef` pointer instead of the plaintext.
