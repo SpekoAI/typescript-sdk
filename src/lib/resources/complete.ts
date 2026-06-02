@@ -44,7 +44,16 @@ export class Complete {
     params: CompleteParams,
     abortSignal?: AbortSignal,
   ): AsyncIterableIterator<CompleteStreamEvent> {
-    for await (const event of this.http.requestSse('POST', '/v1/complete', params, abortSignal)) {
+    const { sessionId, ...body } = params;
+    const trimmedSessionId = sessionId?.trim();
+    const headers = trimmedSessionId ? { 'x-session-id': trimmedSessionId } : undefined;
+    for await (const event of this.http.requestSse(
+      'POST',
+      '/v1/complete',
+      body,
+      abortSignal,
+      headers,
+    )) {
       yield {
         ...(event.data as Record<string, unknown>),
         type: event.event,

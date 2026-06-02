@@ -311,6 +311,12 @@ export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | '
 export interface CompleteParams {
   messages: ChatMessage[];
   intent: RoutingIntent;
+  /**
+   * Optional voice/session identifier forwarded as `x-session-id` for
+   * server-executed tools. The value is intentionally carried out-of-band
+   * so `/v1/complete` request bodies stay provider-shaped.
+   */
+  sessionId?: string;
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;

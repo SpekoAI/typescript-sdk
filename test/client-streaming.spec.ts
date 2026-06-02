@@ -208,6 +208,42 @@ describe('Speko streaming endpoints', () => {
     });
   });
 
+  it('passes the complete session id as an SSE header only', async () => {
+    const fetchMock = mockFetch(
+      new Response(
+        textStream(
+          sse('done', {
+            text: 'Hello',
+            provider: 'openai',
+            model: 'gpt-4o-mini',
+            usage: { promptTokens: 4, completionTokens: 2 },
+            failoverCount: 0,
+            scoresRunId: null,
+          }),
+        ),
+        { headers: { 'Content-Type': 'text/event-stream' } },
+      ),
+    );
+
+    const speko = new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test' });
+    await collect(
+      speko.completeStream({
+        messages: [{ role: 'user', content: 'Hi' }],
+        intent: { language: 'en' },
+        sessionId: ' sess_live_123 ',
+      }),
+    );
+
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    expect(init).toBeDefined();
+    expect(init?.headers).toEqual(
+      expect.objectContaining({
+        'x-session-id': 'sess_live_123',
+      }),
+    );
+    expect(JSON.parse(String(init?.body))).not.toHaveProperty('sessionId');
+  });
+
   it('aggregates synthesize chunks into the legacy result shape', async () => {
     mockFetch(
       new Response(byteStream(new Uint8Array([1, 2]), new Uint8Array([3])), {
