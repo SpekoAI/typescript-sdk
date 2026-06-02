@@ -489,6 +489,16 @@ export interface VoiceDialResult {
 export type PhoneNumberDirection = 'inbound' | 'outbound' | 'both';
 export type PhoneNumberSource = 'managed' | 'sip_trunk' | 'telnyx';
 
+export interface PhoneNumberSetupStatus {
+  status: 'ready' | 'action_required' | 'suspended';
+  inboundReady: boolean;
+  outboundReady: boolean;
+  agentReady: boolean;
+  forwardingRequired: boolean;
+  sipConnectionReady: boolean;
+  issues: string[];
+}
+
 export interface PhoneNumberRow {
   id: string;
   organizationId: string;
@@ -511,6 +521,7 @@ export interface PhoneNumberRow {
    * dispatch_metadata_template.
    */
   agentId: string | null;
+  setupStatus: PhoneNumberSetupStatus;
   nextChargeAt: string;
   lastChargedAt: string | null;
   suspendedAt: string | null;
@@ -733,11 +744,65 @@ export interface CallReport {
   cost_breakdown: CallCostLine[];
   artifacts: Record<string, unknown>;
   metadata: Record<string, unknown>;
+  scheduled_callback: ScheduledCallback | Record<string, unknown> | null;
+  analysis_status: 'heuristic' | 'completed' | 'failed';
+  analysis_provider: string | null;
+  analysis_model: string | null;
+  analysis_error: string | null;
+  analysis_completed_at: string | null;
   post_call_webhook_status: 'not_configured' | 'pending' | 'delivered' | 'failed';
+  post_call_webhook_attempts: number;
+  post_call_webhook_next_retry_at: string | null;
   post_call_webhook_delivered_at: string | null;
   post_call_webhook_error: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type ScheduledCallbackStatus =
+  | 'scheduled'
+  | 'dispatching'
+  | 'dispatched'
+  | 'cancelled'
+  | 'failed';
+
+export interface ScheduledCallback {
+  id: string;
+  organization_id: string;
+  source_session_id: string | null;
+  created_session_id: string | null;
+  agent_id: string | null;
+  phone_number_id: string | null;
+  to_number: string;
+  from_number: string | null;
+  scheduled_at: string;
+  status: ScheduledCallbackStatus;
+  reason: string | null;
+  instructions: string | null;
+  summary: string | null;
+  pipeline_config: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  failure_cause: string | null;
+  attempted_at: string | null;
+  dispatched_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduledCallbacksListParams {
+  status?: ScheduledCallbackStatus;
+  sourceSessionId?: string;
+  limit?: number;
+}
+
+export interface CancelScheduledCallbackParams {
+  reason?: string;
+}
+
+export interface FinalizeCallReportParams {
+  forceAnalysis?: boolean;
+  retryWebhook?: boolean;
 }
 
 export interface CallEvent {
@@ -779,6 +844,7 @@ export interface CallTransfer {
 export interface CallTransferResponse extends CallTransfer {
   routing_attempts?: (CallTransfer | null)[];
   next_transfer?: CallTransfer | null;
+  fallback?: WarmTransferFallbackResult | null;
 }
 
 export interface CallDetail {
@@ -822,6 +888,27 @@ export interface WarmTransferDestination {
   metadata?: Record<string, unknown>;
 }
 
+export interface WarmTransferFallback {
+  strategy?: 'return_to_assistant' | 'take_message' | 'end_call';
+  message?: string;
+  takeMessagePrompt?: string;
+  holdAudioUrl?: string;
+}
+
+export interface WarmTransferVoicemailDetection {
+  mode?: 'agent' | 'amd' | 'disabled';
+  enabled?: boolean;
+  timeoutSeconds?: number;
+}
+
+export interface WarmTransferFallbackResult {
+  action: 'return_to_assistant' | 'take_message' | 'end_call';
+  message: string;
+  take_message_prompt: string | null;
+  hold_audio_url: string | null;
+  voicemail_detected: boolean;
+}
+
 export interface WarmTransferParams {
   to?: string;
   destinations?: WarmTransferDestination[];
@@ -832,6 +919,8 @@ export interface WarmTransferParams {
   summary?: string;
   ringingTimeout?: number;
   waitUntilAnswered?: boolean;
+  fallback?: WarmTransferFallback;
+  voicemailDetection?: WarmTransferVoicemailDetection;
   metadata?: Record<string, unknown>;
 }
 
@@ -844,6 +933,7 @@ export interface CancelWarmTransferParams {
   reason?: string;
   summary?: string;
   tryNext?: boolean;
+  voicemailDetected?: boolean;
 }
 
 // ─── Agent tools ─────────────────────────────────────────────────────

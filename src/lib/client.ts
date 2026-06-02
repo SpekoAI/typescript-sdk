@@ -1,5 +1,6 @@
 import { HttpClient } from './http.js';
 import { Agents } from './resources/agents.js';
+import { Callbacks } from './resources/callbacks.js';
 import { Calls } from './resources/calls.js';
 import { Complete } from './resources/complete.js';
 import { Credits } from './resources/credits.js';
@@ -51,6 +52,7 @@ export class Speko {
   readonly agents: Agents;
   readonly knowledgeBases: KnowledgeBases;
   readonly calls: Calls;
+  readonly callbacks: Callbacks;
 
   private readonly transcribeResource: Transcribe;
   private readonly synthesizeResource: Synthesize;
@@ -76,6 +78,7 @@ export class Speko {
     this.agents = new Agents(http);
     this.knowledgeBases = new KnowledgeBases(http);
     this.calls = new Calls(http);
+    this.callbacks = new Callbacks(http);
     this.transcribeResource = new Transcribe(http);
     this.synthesizeResource = new Synthesize(http);
     this.completeResource = new Complete(http);
