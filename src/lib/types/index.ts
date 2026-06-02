@@ -456,15 +456,20 @@ export interface VoiceDialParams {
   to: string;
   /** Caller ID. Falls back to the org default if omitted server-side. */
   from?: string;
+  /** Persisted assistant to run for this call. When supplied, `intent` can be omitted. */
+  agentId?: string;
   /** Routing intent — language is required, optimizeFor optional. */
-  intent: RoutingIntent;
+  intent?: RoutingIntent;
   constraints?: PipelineConstraints;
   /** TTS voice id passed through to the picked TTS provider. */
   voice?: string;
   /** Agent system prompt. */
   systemPrompt?: string;
+  /** Optional first utterance. `null` is not accepted by phone dial; omit to use the agent default. */
+  firstMessage?: string;
   llm?: { temperature?: number; maxTokens?: number };
   ttsOptions?: { sampleRate?: number; speed?: number };
+  sttOptions?: { keywords?: string[] };
   /** Free-form metadata round-tripped to your webhooks. */
   metadata?: Record<string, unknown>;
 }
@@ -622,6 +627,47 @@ export interface AgentBackgroundAudio {
   };
 }
 
+export interface AgentLifecycleWebhookCreate {
+  url: string;
+  /** Plaintext Standard-Webhooks signing secret. Encrypted server-side. */
+  secret: string;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+}
+
+export interface AgentLifecycleWebhookUpdate {
+  url: string;
+  /** Omit to keep the existing stored secret; supply to rotate. */
+  secret?: string;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+}
+
+export interface AgentLifecycleWebhookSerialized {
+  url: string;
+  secretRef: string;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+}
+
+export interface AgentWebhooksSerialized {
+  preCall?: AgentLifecycleWebhookSerialized;
+  postCall?: AgentLifecycleWebhookSerialized;
+  status?: AgentLifecycleWebhookSerialized;
+}
+
+export interface AgentWebhooksCreate {
+  preCall?: AgentLifecycleWebhookCreate;
+  postCall?: AgentLifecycleWebhookCreate;
+  status?: AgentLifecycleWebhookCreate;
+}
+
+export interface AgentWebhooksUpdate {
+  preCall?: AgentLifecycleWebhookUpdate | null;
+  postCall?: AgentLifecycleWebhookUpdate | null;
+  status?: AgentLifecycleWebhookUpdate | null;
+}
+
 export interface AgentRow {
   id: string;
   organizationId: string;
@@ -633,6 +679,7 @@ export interface AgentRow {
   stackPreferences: AgentStackPreferences | null;
   sttOptions: AgentSttOptions | null;
   backgroundAudio: AgentBackgroundAudio | null;
+  webhooks: AgentWebhooksSerialized | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -646,9 +693,158 @@ export interface AgentCreateParams {
   stackPreferences?: AgentStackPreferences;
   sttOptions?: AgentSttOptions;
   backgroundAudio?: AgentBackgroundAudio;
+  webhooks?: AgentWebhooksCreate;
 }
 
-export type AgentUpdateParams = Partial<AgentCreateParams>;
+export type AgentUpdateParams = Partial<Omit<AgentCreateParams, 'webhooks'>> & {
+  webhooks?: AgentWebhooksUpdate | null;
+};
+
+// ─── Calls ───────────────────────────────────────────────────────────
+
+export interface CallTranscriptEntry {
+  id: string;
+  index: number;
+  source: 'user' | 'agent' | 'system';
+  text: string;
+  started_at: string;
+  ended_at: string | null;
+  provider: string | null;
+  model: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface CallCostLine {
+  provider: string;
+  metric: string;
+  quantity: number;
+  keySource: KeySource;
+  costMicroUsd: string;
+}
+
+export interface CallReport {
+  session_id: string;
+  organization_id: string;
+  summary: string;
+  outcome: string;
+  structured_data: Record<string, unknown>;
+  transcript: { entries: CallTranscriptEntry[] };
+  cost_micro_usd: string;
+  cost_breakdown: CallCostLine[];
+  artifacts: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  post_call_webhook_status: 'not_configured' | 'pending' | 'delivered' | 'failed';
+  post_call_webhook_delivered_at: string | null;
+  post_call_webhook_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CallEvent {
+  id: string;
+  session_id: string | null;
+  organization_id: string;
+  provider: 'livekit' | 'telnyx' | 'speko' | string;
+  event_type: string;
+  status: string | null;
+  failure_cause: string | null;
+  sip_status_code: number | null;
+  sip_status: string | null;
+  occurred_at: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface CallTransfer {
+  id: string;
+  session_id: string;
+  organization_id: string;
+  kind: 'blind' | 'warm';
+  status: 'requested' | 'screening' | 'bridging' | 'completed' | 'failed' | 'cancelled';
+  transfer_to: string;
+  from_room_name: string | null;
+  consultation_room_name: string | null;
+  caller_participant_identity: string | null;
+  recipient_participant_identity: string | null;
+  outbound_trunk_id: string | null;
+  screening_prompt: string | null;
+  summary: string | null;
+  failure_cause: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export interface CallTransferResponse extends CallTransfer {
+  routing_attempts?: (CallTransfer | null)[];
+  next_transfer?: CallTransfer | null;
+}
+
+export interface CallDetail {
+  id: string;
+  call_id: string;
+  resource_uri: string;
+  agent_id: string | null;
+  status: string;
+  kind: string;
+  room_name: string | null;
+  language: string;
+  pipeline_config: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  recording_status: string | null;
+  recording_duration_ms: number | null;
+  recording_resource_uri: string;
+  report: CallReport | null;
+  transfers: CallTransfer[];
+  transcript: { entries: CallTranscriptEntry[] };
+  span_tree: Record<string, unknown>;
+}
+
+export interface BlindTransferParams {
+  to: string;
+  participantIdentity?: string;
+  playDialtone?: boolean;
+  ringingTimeout?: number;
+  headers?: Record<string, string>;
+}
+
+export interface WarmTransferDestination {
+  to: string;
+  label?: string;
+  outboundTrunkId?: string;
+  screeningPrompt?: string;
+  summary?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WarmTransferParams {
+  to?: string;
+  destinations?: WarmTransferDestination[];
+  from?: string;
+  participantIdentity?: string;
+  outboundTrunkId?: string;
+  screeningPrompt?: string;
+  summary?: string;
+  ringingTimeout?: number;
+  waitUntilAnswered?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CompleteWarmTransferParams {
+  recipientParticipantIdentity?: string;
+  summary?: string;
+}
+
+export interface CancelWarmTransferParams {
+  reason?: string;
+  summary?: string;
+  tryNext?: boolean;
+}
 
 // ─── Agent tools ─────────────────────────────────────────────────────
 
