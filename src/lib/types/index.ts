@@ -664,8 +664,8 @@ export interface AgentSpeechNormalization {
 
 export interface AgentLifecycleWebhookCreate {
   url: string;
-  /** Plaintext Standard-Webhooks signing secret. Encrypted server-side. */
-  secret: string;
+  /** Deprecated. Lifecycle webhooks use the org-level signing secret from API keys. */
+  secret?: string;
   headers?: Record<string, string>;
   timeoutMs?: number;
   responseMode?: 'sync' | 'async';
@@ -674,7 +674,7 @@ export interface AgentLifecycleWebhookCreate {
 
 export interface AgentLifecycleWebhookUpdate {
   url: string;
-  /** Omit to keep the existing stored secret; supply to rotate. */
+  /** Deprecated. Lifecycle webhooks use the org-level signing secret from API keys. */
   secret?: string;
   headers?: Record<string, string>;
   timeoutMs?: number;
