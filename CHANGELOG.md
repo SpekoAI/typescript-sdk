@@ -1,3 +1,29 @@
+## 0.4.2 (2026-06-05)
+
+### 🚀 Features
+
+- enhance Telephony SDK with KYB and call management features ([077ea9a2](https://github.com/SpekoAI/platform/commit/077ea9a2))
+- Dashboard updates for the new phone calls section ([#425](https://github.com/SpekoAI/platform/pull/425))
+- **sdk:** listChatTools, baseURL alias, integration tool source + AbortSignal ([4350efcf](https://github.com/SpekoAI/platform/commit/4350efcf))
+- migrate from chroma to moss.dev ([1cf69e4c](https://github.com/SpekoAI/platform/commit/1cf69e4c))
+- **benchmarks:** language-fidelity (anglicization) metric for s2s/multilingual ([#382](https://github.com/SpekoAI/platform/pull/382))
+- **tts:** add model param, raise 50K char cap, ship /v1/voices catalog ([#323](https://github.com/SpekoAI/platform/pull/323))
+- add org integration catalog ([#319](https://github.com/SpekoAI/platform/pull/319))
+- support byo sip trunk numbers ([#318](https://github.com/SpekoAI/platform/pull/318))
+- add background noise options ([aaabb6b3](https://github.com/SpekoAI/platform/commit/aaabb6b3))
+- update package versions across multiple packages to ensure consistency and compatibility ([23c597d7](https://github.com/SpekoAI/platform/commit/23c597d7))
+
+### 🩹 Fixes
+
+- update sync message prefixes in dispatch workflows for consistency ([4e7816d2](https://github.com/SpekoAI/platform/commit/4e7816d2))
+
+### ❤️ Thank You
+
+- Abat
+- Baymurat785 @Baymurat785
+- Claude Opus 4.8 (1M context)
+- Laroikin
+
 ## 0.4.0 (2026-05-12)
 
 ### 🚀 Features
