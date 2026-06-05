@@ -506,7 +506,13 @@ export interface VoiceDialResult {
 // ─── Phone numbers ───────────────────────────────────────────────────
 
 export type PhoneNumberDirection = 'inbound' | 'outbound' | 'both';
-export type PhoneNumberSource = 'managed' | 'sip_trunk' | 'telnyx';
+export type PhoneNumberSource = 'managed' | 'sip_trunk';
+export type PhoneNumberSmsAssignmentStatus =
+  | 'FAILED_ASSIGNMENT'
+  | 'PENDING_ASSIGNMENT'
+  | 'ASSIGNED'
+  | 'PENDING_UNASSIGNMENT'
+  | 'FAILED_UNASSIGNMENT';
 
 export interface PhoneNumberSetupStatus {
   status: 'ready' | 'action_required' | 'suspended';
@@ -534,6 +540,10 @@ export interface PhoneNumberRow {
   direction: PhoneNumberDirection;
   dispatchMetadataTemplate: Record<string, unknown> | null;
   label: string | null;
+  sms10dlcProfileId: string | null;
+  smsCampaignId: string | null;
+  smsAssignmentStatus: PhoneNumberSmsAssignmentStatus | null;
+  smsAssignmentUpdatedAt: string | null;
   /**
    * 1:1 link to a persisted agent. When set, inbound calls hydrate
    * pipeline config from the agent row instead of (or alongside) the
@@ -558,10 +568,8 @@ export interface PhoneNumberCreateParams {
   agentId?: string;
 }
 
-export interface PhoneNumberImportSipTrunkParams {
+export type PhoneNumberImportSipTrunkParams = {
   e164: string;
-  /** Installed SIP connection integration id. */
-  sipConnectionInstallationId: string;
   /** Optional provider/account label for display. */
   sipProviderName?: string;
   direction?: PhoneNumberDirection;
@@ -570,12 +578,24 @@ export interface PhoneNumberImportSipTrunkParams {
   label?: string;
   /** 1:1 link to an agent in the same org. */
   agentId?: string;
-}
+} & (
+  | {
+      /** Installed SIP connection integration id. Preferred for productized SIP connections. */
+      sipConnectionInstallationId: string;
+      /** Legacy LiveKit outbound trunk id. Ignored when `sipConnectionInstallationId` is present. */
+      sipTrunkId?: string;
+    }
+  | {
+      /** Legacy LiveKit outbound trunk id. Use `sipConnectionInstallationId` for new integrations. */
+      sipTrunkId: string;
+      sipConnectionInstallationId?: string;
+    }
+);
 
 export interface PhoneNumberUpdateParams {
   direction?: PhoneNumberDirection;
-  dispatchMetadataTemplate?: Record<string, unknown>;
-  label?: string;
+  dispatchMetadataTemplate?: Record<string, unknown> | null;
+  label?: string | null;
   /** Pass `null` to unlink, a string to relink. */
   agentId?: string | null;
 }
@@ -600,6 +620,87 @@ export interface PhoneNumberSearchParams {
   locality?: string;
   /** Max results. Default 10. */
   limit?: number;
+}
+
+export type PhoneNumberKybStatus =
+  | 'missing'
+  | 'draft'
+  | 'submitted'
+  | 'approved'
+  | 'rejected'
+  | 'revoked';
+
+export type PhoneNumberKybSubmissionStatus = Exclude<PhoneNumberKybStatus, 'missing'>;
+
+export type PhoneNumberKybSlackNotificationStatus = 'not_queued' | 'queued' | 'enqueue_failed';
+
+export interface PhoneNumberKybBusinessProfile {
+  legalName: string;
+  displayName: string;
+  entityType: string;
+  country: string;
+  registrationId?: string;
+  website: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
+  useCase: string;
+  expectedUsage: string;
+}
+
+export interface PhoneNumberKybAuthorizedRepresentative {
+  name: string;
+  title: string;
+  email: string;
+  phone?: string;
+}
+
+export interface PhoneNumberKybDraftParams {
+  businessProfile: PhoneNumberKybBusinessProfile;
+  authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative;
+  attestationAccepted?: boolean;
+}
+
+export interface PhoneNumberKybSubmitParams {
+  businessProfile: PhoneNumberKybBusinessProfile;
+  authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative;
+  attestationAccepted: true;
+}
+
+export interface PhoneNumberKybSubmission {
+  id: string;
+  organizationId: string;
+  status: PhoneNumberKybSubmissionStatus;
+  businessProfile: PhoneNumberKybBusinessProfile | null;
+  authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative | null;
+  attestationAccepted: boolean;
+  attestedAt: string | null;
+  submittedByUserId: string | null;
+  submittedByEmail: string | null;
+  submittedByApiKeyId: string | null;
+  submittedAt: string | null;
+  reviewerUserId: string | null;
+  reviewerEmail: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  slackNotificationStatus: PhoneNumberKybSlackNotificationStatus;
+  slackNotificationJobId: string | null;
+  slackNotificationError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PhoneNumberKybOverview {
+  status: PhoneNumberKybStatus;
+  submission: PhoneNumberKybSubmission | null;
+  prefill: {
+    businessProfile: PhoneNumberKybBusinessProfile;
+    authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative;
+  } | null;
 }
 
 // ─── Agents ──────────────────────────────────────────────────────────
@@ -837,6 +938,18 @@ export interface FinalizeCallReportParams {
   retryWebhook?: boolean;
 }
 
+export interface FinalizeCallReportResult {
+  session_id: string;
+  summary: string;
+  outcome: string;
+  cost_micro_usd: string;
+  webhook: unknown;
+}
+
+export interface CallRecording {
+  url: string;
+}
+
 export interface CallEvent {
   id: string;
   session_id: string | null;
@@ -966,6 +1079,36 @@ export interface CancelWarmTransferParams {
   summary?: string;
   tryNext?: boolean;
   voicemailDetected?: boolean;
+}
+
+export interface AgentCallListParams {
+  /** Max rows. Default 50, server-capped at 100. */
+  limit?: number;
+  /** ISO timestamp returned as `next_cursor` from the previous page. */
+  cursor?: string;
+  /** ISO timestamp lower bound for calls to include. */
+  since?: string;
+}
+
+export interface AgentCallListEntry {
+  id: string;
+  call_id: string;
+  resource_uri: string;
+  agent_id: string;
+  status: string;
+  kind: string;
+  room_name: string | null;
+  language: string;
+  created_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  recording_status: string | null;
+}
+
+export interface AgentCallListPage {
+  calls: AgentCallListEntry[];
+  entries: AgentCallListEntry[];
+  next_cursor: string | null;
 }
 
 // ─── Agent tools ─────────────────────────────────────────────────────

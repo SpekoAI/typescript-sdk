@@ -3,6 +3,10 @@ import type {
   AvailablePhoneNumber,
   PhoneNumberCreateParams,
   PhoneNumberImportSipTrunkParams,
+  PhoneNumberKybDraftParams,
+  PhoneNumberKybOverview,
+  PhoneNumberKybSubmission,
+  PhoneNumberKybSubmitParams,
   PhoneNumberRow,
   PhoneNumberSearchParams,
   PhoneNumberUpdateParams,
@@ -78,5 +82,27 @@ export class PhoneNumbers {
 
   delete(id: string): Promise<{ released: boolean }> {
     return this.http.delete<{ released: boolean }>(`/v1/phone-numbers/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Read business verification state used to gate managed phone-number purchases.
+   * Includes the latest submission plus any SMS 10DLC-derived prefill.
+   */
+  getKyb(): Promise<PhoneNumberKybOverview> {
+    return this.http.get<PhoneNumberKybOverview>('/v1/phone-numbers/kyb');
+  }
+
+  /**
+   * Save a draft business verification submission without sending it for review.
+   */
+  saveKybDraft(params: PhoneNumberKybDraftParams): Promise<PhoneNumberKybSubmission> {
+    return this.http.put<PhoneNumberKybSubmission>('/v1/phone-numbers/kyb/draft', params);
+  }
+
+  /**
+   * Submit business verification for review. `attestationAccepted` must be `true`.
+   */
+  submitKyb(params: PhoneNumberKybSubmitParams): Promise<PhoneNumberKybSubmission> {
+    return this.http.post<PhoneNumberKybSubmission>('/v1/phone-numbers/kyb/submit', params);
   }
 }

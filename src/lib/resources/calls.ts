@@ -3,12 +3,14 @@ import type {
   BlindTransferParams,
   CallDetail,
   CallEvent,
+  CallRecording,
   CallReport,
   CallTransfer,
   CallTransferResponse,
   CancelWarmTransferParams,
   CompleteWarmTransferParams,
   FinalizeCallReportParams,
+  FinalizeCallReportResult,
   WarmTransferParams,
 } from '../types/index.js';
 
@@ -30,14 +32,15 @@ export class Calls {
   finalizeReport(
     callId: string,
     params: FinalizeCallReportParams = {},
-  ): Promise<{
-    session_id: string;
-    summary: string;
-    outcome: string;
-    cost_micro_usd: string;
-    webhook: unknown;
-  }> {
-    return this.http.post(`/v1/calls/${encodeURIComponent(callId)}/report/finalize`, params);
+  ): Promise<FinalizeCallReportResult> {
+    return this.http.post<FinalizeCallReportResult>(
+      `/v1/calls/${encodeURIComponent(callId)}/report/finalize`,
+      params,
+    );
+  }
+
+  recording(callId: string): Promise<CallRecording> {
+    return this.http.get<CallRecording>(`/v1/calls/${encodeURIComponent(callId)}/recording`);
   }
 
   blindTransfer(callId: string, params: BlindTransferParams): Promise<CallTransfer> {

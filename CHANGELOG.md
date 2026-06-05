@@ -49,6 +49,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AgentToolSourceWebhookUpdate` / `AgentToolSourceUpdate` types: webhook updates
   may now omit `secret` to keep the existing encrypted secret (only supply it to
   rotate). `AgentToolUpdateParams.source` uses the new update union.
+- Telephony SDK parity: `phoneNumbers.getKyb/saveKybDraft/submitKyb`,
+  `calls.recording`, and `agents.listCalls`, plus public types for KYB,
+  call recordings, report finalization, SMS assignment fields, and agent call
+  pages.
+
+### Changed
+
+- `PhoneNumberRow.source` now reflects the public API values
+  (`managed | sip_trunk`), `PhoneNumberUpdateParams` accepts `null` for clearable
+  fields, and `PhoneNumberImportSipTrunkParams` supports both productized SIP
+  connection imports and the legacy `sipTrunkId` path.
 
 ## [0.2.1] - 2026-04-26
 

@@ -6,7 +6,7 @@ export interface HttpClientOptions {
   timeout: number;
 }
 
-const USER_AGENT = '@spekoai/sdk/0.4.0';
+const USER_AGENT = '@spekoai/sdk/0.4.1';
 
 export class HttpClient {
   private readonly baseUrl: string;
@@ -58,6 +58,10 @@ export class HttpClient {
 
   async post<T>(path: string, body: unknown, externalSignal?: AbortSignal): Promise<T> {
     return this.request<T>('POST', path, body, externalSignal);
+  }
+
+  async put<T>(path: string, body: unknown, externalSignal?: AbortSignal): Promise<T> {
+    return this.request<T>('PUT', path, body, externalSignal);
   }
 
   async delete<T>(path: string, externalSignal?: AbortSignal): Promise<T> {

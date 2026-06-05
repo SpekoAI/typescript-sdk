@@ -1,5 +1,7 @@
 import type { HttpClient } from '../http.js';
 import type {
+  AgentCallListPage,
+  AgentCallListParams,
   AgentCreateParams,
   AgentRow,
   AgentToolCreateParams,
@@ -79,6 +81,21 @@ export class Agents {
     return this.http.patch<PhoneNumberRow>(
       `/v1/phone-numbers/${encodeURIComponent(phoneNumberId)}`,
       { agentId: null },
+    );
+  }
+
+  /**
+   * List recent calls for an agent. Use `next_cursor` from the returned page
+   * as `cursor` to page backward in time.
+   */
+  listCalls(agentId: string, params: AgentCallListParams = {}): Promise<AgentCallListPage> {
+    const query = new URLSearchParams();
+    if (params.limit !== undefined) query.set('limit', String(params.limit));
+    if (params.cursor) query.set('cursor', params.cursor);
+    if (params.since) query.set('since', params.since);
+    const suffix = query.toString() ? `?${query}` : '';
+    return this.http.get<AgentCallListPage>(
+      `/v1/agents/${encodeURIComponent(agentId)}/calls${suffix}`,
     );
   }
 }
