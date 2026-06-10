@@ -16,7 +16,7 @@ const DEFAULT_POLL_TIMEOUT_MS = 120_000;
 
 /**
  * Per-agent knowledge bases. Each KB owns documents that get embedded
- * into a Chroma collection so the agent can retrieve relevant chunks
+ * into a PHALANX tenant so the agent can retrieve relevant chunks
  * during a call. Every agent created via {@link Agents.create}
  * auto-provisions a `Default` KB; additional KBs can be created
  * explicitly with {@link KnowledgeBases.create}.
