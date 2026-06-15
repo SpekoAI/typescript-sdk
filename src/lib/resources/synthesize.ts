@@ -60,6 +60,7 @@ export class Synthesize {
     if (options.voice !== undefined) body['voice'] = options.voice;
     if (options.model !== undefined) body['model'] = options.model;
     if (options.speed !== undefined) body['speed'] = options.speed;
+    if (options.instructions !== undefined) body['instructions'] = options.instructions;
     if (options.constraints !== undefined) body['constraints'] = options.constraints;
 
     const { chunks, headers } = await this.http.requestBinaryStream(
