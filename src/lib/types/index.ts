@@ -159,13 +159,6 @@ export interface SynthesizeOptions extends RoutingIntent {
    */
   model?: string;
   speed?: number;
-  /**
-   * Free-text speaking instruction (tone/pace/emotion) for instruction-capable
-   * TTS models (e.g. gpt-4o-mini-tts, Hume Octave, qwen3-tts-instruct-flash).
-   * The router silently ignores it for text-only models, so it's safe to set
-   * unconditionally.
-   */
-  instructions?: string;
   constraints?: PipelineConstraints;
 }
 
