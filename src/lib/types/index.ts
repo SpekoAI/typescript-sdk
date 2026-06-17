@@ -159,6 +159,13 @@ export interface SynthesizeOptions extends RoutingIntent {
    */
   model?: string;
   speed?: number;
+  /**
+   * Free-text speaking-style instruction (tone, pace, emotion) forwarded to the
+   * TTS model. Only instruction-capable models honor it (OpenAI
+   * `gpt-4o-mini-tts`, Hume Octave, `qwen3-tts-instruct-flash`); the router
+   * drops it for any other resolved model, so it's safe to always pass.
+   */
+  instructions?: string;
   constraints?: PipelineConstraints;
 }
 
