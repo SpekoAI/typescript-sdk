@@ -166,6 +166,13 @@ export interface SynthesizeOptions extends RoutingIntent {
    * drops it for any other resolved model, so it's safe to always pass.
    */
   instructions?: string;
+  /**
+   * Normalize the text into spoken form before TTS — strip markdown/URLs, spell
+   * out numbers/currency/abbreviations. A deterministic safety net beneath the
+   * voice directive. The voice pipeline sets this; direct TTS callers default
+   * off and get literal text.
+   */
+  spokenForm?: boolean;
   constraints?: PipelineConstraints;
 }
 
