@@ -7,6 +7,7 @@ export type {
   AgentCallListPage,
   AgentCallListParams,
   AgentCreateParams,
+  AgentExtractionField,
   AgentIntent,
   AgentLifecycleWebhookCreate,
   AgentLifecycleWebhookSerialized,

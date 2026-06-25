@@ -777,6 +777,29 @@ export interface AgentSpeechNormalization {
   textReplacements?: Record<string, string>;
 }
 
+/**
+ * A caller-defined post-call extraction field. Only meaningful on the
+ * `postCall` webhook: the call-analysis pass fills each from the transcript per
+ * `description`, typed by `type`, and the values are delivered under the
+ * webhook payload's top-level `custom_data` object keyed by `name`. `options`
+ * is required for `enum` fields.
+ */
+export interface AgentExtractionField {
+  /**
+   * Stable key the value lands under in `custom_data`. Must be a valid
+   * identifier (`^[a-zA-Z_][a-zA-Z0-9_]*$`), up to 64 chars, unique per webhook.
+   */
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'enum';
+  /** Instruction the LLM uses to extract this field. 1–500 characters. */
+  description: string;
+  /**
+   * Allowed values — required (and only valid) when `type` is `'enum'`.
+   * 1–50 options, each up to 120 characters.
+   */
+  options?: string[];
+}
+
 export interface AgentLifecycleWebhookCreate {
   url: string;
   /** Deprecated. Lifecycle webhooks use the org-level signing secret from API keys. */
@@ -785,6 +808,8 @@ export interface AgentLifecycleWebhookCreate {
   timeoutMs?: number;
   responseMode?: 'sync' | 'async';
   asyncAck?: string;
+  /** Post-call data-extraction fields. Applies to the `postCall` webhook only. */
+  extractionFields?: AgentExtractionField[];
 }
 
 export interface AgentLifecycleWebhookUpdate {
@@ -795,6 +820,8 @@ export interface AgentLifecycleWebhookUpdate {
   timeoutMs?: number;
   responseMode?: 'sync' | 'async';
   asyncAck?: string;
+  /** Post-call data-extraction fields. Applies to the `postCall` webhook only. */
+  extractionFields?: AgentExtractionField[];
 }
 
 export interface AgentLifecycleWebhookSerialized {
@@ -804,6 +831,8 @@ export interface AgentLifecycleWebhookSerialized {
   timeoutMs?: number;
   responseMode?: 'sync' | 'async';
   asyncAck?: string;
+  /** Post-call data-extraction fields. Present on the `postCall` webhook only. */
+  extractionFields?: AgentExtractionField[];
 }
 
 export interface AgentWebhooksSerialized {
