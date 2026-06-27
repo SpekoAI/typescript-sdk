@@ -117,9 +117,20 @@ export class Agents {
 export class AgentTools {
   constructor(private readonly http: HttpClient) {}
 
-  list(agentId: string, abortSignal?: AbortSignal): Promise<AgentToolRow[]> {
+  /**
+   * @param opts.available When true, the server returns only tools the agent
+   *   can actually run right now — integration tools whose backing installation
+   *   is disconnected/missing are omitted. Use this on the runtime path so the
+   *   model is never offered a tool that would fail.
+   */
+  list(
+    agentId: string,
+    abortSignal?: AbortSignal,
+    opts?: { available?: boolean },
+  ): Promise<AgentToolRow[]> {
+    const query = opts?.available ? '?available=1' : '';
     return this.http.get<AgentToolRow[]>(
-      `/v1/agents/${encodeURIComponent(agentId)}/tools`,
+      `/v1/agents/${encodeURIComponent(agentId)}/tools${query}`,
       abortSignal,
     );
   }
@@ -173,8 +184,12 @@ export class AgentTools {
    * four source kinds (`inline`, `webhook`, `builtin`, `integration`) — load
    * once and pass the result straight to `speko.complete({ tools })`.
    */
-  async listChatTools(agentId: string, abortSignal?: AbortSignal): Promise<ChatTool[]> {
-    const rows = await this.list(agentId, abortSignal);
+  async listChatTools(
+    agentId: string,
+    abortSignal?: AbortSignal,
+    opts?: { available?: boolean },
+  ): Promise<ChatTool[]> {
+    const rows = await this.list(agentId, abortSignal, opts);
     return rows.map(toChatTool);
   }
 }
