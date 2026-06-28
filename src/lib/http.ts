@@ -240,13 +240,14 @@ export class HttpClient {
     path: string,
     body: unknown,
     externalSignal?: AbortSignal,
+    extraHeaders?: Record<string, string>,
   ): Promise<{ chunks: AsyncIterableIterator<Uint8Array>; headers: Record<string, string> }> {
     const url = `${this.baseUrl}${path}`;
     const { signal, cleanup } = this.buildSignal(externalSignal);
 
     const response = await fetch(url, {
       method,
-      headers: this.jsonHeaders,
+      headers: { ...this.jsonHeaders, ...extraHeaders },
       body: body ? JSON.stringify(body) : undefined,
       signal,
     });

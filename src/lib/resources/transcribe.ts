@@ -58,6 +58,10 @@ export class Transcribe {
       'Content-Type': options.contentType ?? 'audio/wav',
       'X-Speko-Intent': JSON.stringify(intent),
     };
+    const trimmedSessionId = options.sessionId?.trim();
+    if (trimmedSessionId) {
+      headers['x-session-id'] = trimmedSessionId;
+    }
     if (options.constraints) {
       headers['X-Speko-Constraints'] = JSON.stringify(options.constraints);
     }

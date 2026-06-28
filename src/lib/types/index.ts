@@ -106,6 +106,12 @@ export interface PipelineConstraints {
 // --- Transcribe -------------------------------------------------------------
 
 export interface TranscribeOptions extends RoutingIntent {
+  /**
+   * Optional voice/session identifier forwarded as `x-session-id` for usage
+   * attribution. The value is carried out-of-band so request bodies and STT
+   * provider options stay provider-shaped.
+   */
+  sessionId?: string;
   /** MIME type of the audio body. Defaults to "audio/wav". */
   contentType?: string;
   constraints?: PipelineConstraints;
@@ -147,6 +153,12 @@ export type TranscribeStreamEvent =
 // --- Synthesize -------------------------------------------------------------
 
 export interface SynthesizeOptions extends RoutingIntent {
+  /**
+   * Optional voice/session identifier forwarded as `x-session-id` for usage
+   * attribution. The value is carried out-of-band so request bodies and TTS
+   * provider options stay provider-shaped.
+   */
+  sessionId?: string;
   /** Optional voice override. Otherwise the SDK uses each provider's default. */
   voice?: string;
   /**

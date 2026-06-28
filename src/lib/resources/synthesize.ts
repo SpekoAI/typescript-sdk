@@ -50,6 +50,8 @@ export class Synthesize {
     options: SynthesizeOptions,
     abortSignal?: AbortSignal,
   ): Promise<SynthesizeStreamResult> {
+    const trimmedSessionId = options.sessionId?.trim();
+    const requestHeaders = trimmedSessionId ? { 'x-session-id': trimmedSessionId } : undefined;
     const intent = {
       language: options.language,
       ...(options.region !== undefined && { region: options.region }),
@@ -64,19 +66,20 @@ export class Synthesize {
     if (options.spokenForm !== undefined) body['spokenForm'] = options.spokenForm;
     if (options.constraints !== undefined) body['constraints'] = options.constraints;
 
-    const { chunks, headers } = await this.http.requestBinaryStream(
+    const { chunks, headers: responseHeaders } = await this.http.requestBinaryStream(
       'POST',
       '/v1/synthesize',
       body,
       abortSignal,
+      requestHeaders,
     );
 
     const result = {
-      contentType: headers['content-type'] ?? 'application/octet-stream',
-      provider: headers['x-speko-provider'] ?? 'unknown',
-      model: headers['x-speko-model'] ?? 'unknown',
-      failoverCount: parseInt(headers['x-speko-failover-count'] ?? '0', 10),
-      scoresRunId: headers['x-speko-scores-run-id'] || null,
+      contentType: responseHeaders['content-type'] ?? 'application/octet-stream',
+      provider: responseHeaders['x-speko-provider'] ?? 'unknown',
+      model: responseHeaders['x-speko-model'] ?? 'unknown',
+      failoverCount: parseInt(responseHeaders['x-speko-failover-count'] ?? '0', 10),
+      scoresRunId: responseHeaders['x-speko-scores-run-id'] || null,
       [Symbol.asyncIterator]() {
         return chunks;
       },
