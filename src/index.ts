@@ -29,6 +29,8 @@ export type {
   AgentToolSourceWebhookUpdate,
   AgentToolUpdateParams,
   AgentUpdateParams,
+  AgentWebhookAuthHeader,
+  AgentWebhookAuthHeaderInput,
   AgentWebhooksCreate,
   AgentWebhooksSerialized,
   AgentWebhooksUpdate,

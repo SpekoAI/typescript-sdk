@@ -297,6 +297,12 @@ export type ChatToolSource =
       /** Pointer into Speko's secrets store. Created via `POST /v1/agents/:id/tools` (which encrypts and stores the raw secret). */
       secretRef: string;
       headers?: Record<string, string>;
+      /**
+       * Outbound auth headers whose values are secret-referenced (resolved and
+       * injected by Speko at call time). The raw credential never leaves the
+       * server — only the `secretRef` pointer is exposed.
+       */
+      authHeaders?: Array<{ name: string; secretRef: string }>;
       timeoutMs?: number;
       /** `async` returns `asyncAck` immediately while Speko dispatches the webhook in the background. */
       responseMode?: 'sync' | 'async';
@@ -812,11 +818,32 @@ export interface AgentExtractionField {
   options?: string[];
 }
 
+/**
+ * Outbound auth header input — `value` is the plaintext credential Speko
+ * encrypts at rest. Required on create; omit on update to keep the value
+ * already stored under this header's ref.
+ */
+export interface AgentWebhookAuthHeaderInput {
+  name: string;
+  value?: string;
+}
+
+/** Outbound auth header as returned by the API — value stays server-side. */
+export interface AgentWebhookAuthHeader {
+  name: string;
+  secretRef: string;
+}
+
 export interface AgentLifecycleWebhookCreate {
   url: string;
-  /** Deprecated. Lifecycle webhooks use the org-level signing secret from API keys. */
+  /**
+   * Optional per-webhook signing secret. When supplied, this endpoint signs
+   * with its own secret instead of the shared org-level secret from API keys.
+   */
   secret?: string;
   headers?: Record<string, string>;
+  /** Secret-referenced outbound auth headers (e.g. a Bearer token your endpoint requires). */
+  authHeaders?: AgentWebhookAuthHeaderInput[];
   timeoutMs?: number;
   responseMode?: 'sync' | 'async';
   asyncAck?: string;
@@ -826,9 +853,14 @@ export interface AgentLifecycleWebhookCreate {
 
 export interface AgentLifecycleWebhookUpdate {
   url: string;
-  /** Deprecated. Lifecycle webhooks use the org-level signing secret from API keys. */
+  /**
+   * Optional per-webhook signing secret. Supply to set/rotate a per-webhook
+   * secret; omit to keep the existing (or shared org-level) secret.
+   */
   secret?: string;
   headers?: Record<string, string>;
+  /** Secret-referenced outbound auth headers. Replaces the stored set; omit a `value` to keep it. */
+  authHeaders?: AgentWebhookAuthHeaderInput[];
   timeoutMs?: number;
   responseMode?: 'sync' | 'async';
   asyncAck?: string;
@@ -840,6 +872,8 @@ export interface AgentLifecycleWebhookSerialized {
   url: string;
   secretRef: string;
   headers?: Record<string, string>;
+  /** Outbound auth-header pointers; values stay encrypted server-side. */
+  authHeaders?: AgentWebhookAuthHeader[];
   timeoutMs?: number;
   responseMode?: 'sync' | 'async';
   asyncAck?: string;
@@ -1183,6 +1217,8 @@ export interface AgentToolSourceWebhookCreate {
   /** Plaintext shared secret. Encrypted server-side at write time. */
   secret: string;
   headers?: Record<string, string>;
+  /** Secret-referenced outbound auth headers (e.g. a Bearer token your endpoint requires). */
+  authHeaders?: AgentWebhookAuthHeaderInput[];
   timeoutMs?: number;
 }
 
@@ -1196,6 +1232,8 @@ export interface AgentToolSourceWebhookSerialized {
   /** Pointer into Speko's secrets store. */
   secretRef: string;
   headers?: Record<string, string>;
+  /** Outbound auth-header pointers; values stay encrypted server-side. */
+  authHeaders?: AgentWebhookAuthHeader[];
   timeoutMs?: number;
 }
 
@@ -1230,6 +1268,8 @@ export interface AgentToolSourceWebhookUpdate {
   /** Plaintext shared secret. Omit to keep the existing stored secret; supply to rotate. */
   secret?: string;
   headers?: Record<string, string>;
+  /** Secret-referenced outbound auth headers. Replaces the stored set; omit a `value` to keep it. */
+  authHeaders?: AgentWebhookAuthHeaderInput[];
   timeoutMs?: number;
 }
 
