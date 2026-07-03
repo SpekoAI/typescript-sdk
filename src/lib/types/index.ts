@@ -285,6 +285,14 @@ export interface ChatMessage {
 export type ChatToolExecutionMode = 'inline' | 'webhook' | 'builtin' | 'integration';
 
 /**
+ * Spoken lead-in behavior before a server-executed tool runs. `auto` lets the
+ * gateway decide from the tool's recent execution durations; `always` forces a
+ * spoken lead-in (the gateway injects one when the model didn't produce any);
+ * `never` runs the tool silently.
+ */
+export type ChatToolPreToolSpeech = 'auto' | 'always' | 'never';
+
+/**
  * Source-of-execution config. Required when `executionMode` is
  * `webhook`, `builtin`, or `integration`. Mirrors the SpekoTool `source` shape inside
  * `@spekoai/tool-execution`.
@@ -334,6 +342,8 @@ export interface ChatTool {
   parameters: Record<string, unknown>;
   executionMode?: ChatToolExecutionMode;
   source?: ChatToolSource;
+  /** Spoken lead-in behavior before this tool executes. Defaults to `auto` for registered tools. */
+  preToolSpeech?: ChatToolPreToolSpeech;
 }
 
 /** Mirrors LiveKit's `ToolChoice` for parity with the agents framework. */
@@ -1311,6 +1321,8 @@ export interface AgentToolRow {
   description: string;
   parameters: Record<string, unknown>;
   source: AgentToolSourceSerialized;
+  /** Spoken lead-in behavior before this tool executes. */
+  preToolSpeech: ChatToolPreToolSpeech;
   createdAt: string;
   updatedAt: string;
 }
@@ -1320,12 +1332,15 @@ export interface AgentToolCreateParams {
   description: string;
   parameters: Record<string, unknown>;
   source: AgentToolSourceCreate;
+  /** Spoken lead-in behavior before the tool executes. Defaults to `auto`. */
+  preToolSpeech?: ChatToolPreToolSpeech;
 }
 
 export interface AgentToolUpdateParams {
   description?: string;
   parameters?: Record<string, unknown>;
   source?: AgentToolSourceUpdate;
+  preToolSpeech?: ChatToolPreToolSpeech;
 }
 
 // ─── Knowledge bases ─────────────────────────────────────────────────

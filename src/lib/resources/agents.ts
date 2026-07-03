@@ -206,5 +206,6 @@ function toChatTool(row: AgentToolRow): ChatTool {
     parameters: row.parameters,
     executionMode: row.source.kind,
     source: row.source,
+    ...(row.preToolSpeech !== undefined && { preToolSpeech: row.preToolSpeech }),
   };
 }
