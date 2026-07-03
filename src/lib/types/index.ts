@@ -513,6 +513,8 @@ export interface VoiceDialParams {
   llm?: { temperature?: number; maxTokens?: number };
   ttsOptions?: { sampleRate?: number; speed?: number };
   sttOptions?: { keywords?: string[] };
+  /** Server-side wall-clock cap in seconds. Values are clamped server-side to 30s-4h. */
+  maxDurationSeconds?: number;
   /** Optional per-call SIP routing hints. Carrier AMD requires trunk/provider support. */
   telephony?: {
     region?: string;
@@ -523,6 +525,12 @@ export interface VoiceDialParams {
   };
   /** Free-form metadata round-tripped to your webhooks. */
   metadata?: Record<string, unknown>;
+  /**
+   * Enable the agent-initiated end_call tool for this call. When true, the
+   * agent can hang up once the conversation is genuinely complete. This enables
+   * a tool only; it grants no new outbound, dial, or billing capability.
+   */
+  endCall?: { enabled: boolean };
 }
 
 export interface VoiceDialResult {
@@ -945,6 +953,11 @@ export interface CallTranscriptEntry {
   provider: string | null;
   model: string | null;
   metadata: Record<string, unknown>;
+  eou_ms?: number | null;
+  llm_ttft_ms?: number | null;
+  tts_ttfb_ms?: number | null;
+  latency_status?: 'partial' | 'complete' | 'interrupted' | 'error' | null;
+  conversational_latency_ms?: number | null;
 }
 
 export interface CallCostLine {
