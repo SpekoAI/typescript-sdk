@@ -525,6 +525,22 @@ export interface VoiceDialParams {
   sttOptions?: { keywords?: string[] };
   /** Server-side wall-clock cap in seconds. Values are clamped server-side to 30s-4h. */
   maxDurationSeconds?: number;
+  /**
+   * Optional per-call turn-taking overrides. `greetFirst` is default off; when
+   * true, the greeting plays immediately while AMD classifies in the background.
+   */
+  turnHandling?: {
+    profile?: 'conversational' | 'ivr' | 'ivr_patient';
+    endpointing?: { minDelay?: number; maxDelay?: number };
+    interruption?: {
+      mode?: 'adaptive' | 'vad';
+      minDuration?: number;
+      minWords?: number;
+    };
+    turnDetection?: boolean;
+    contextThreshold?: boolean;
+    greetFirst?: boolean;
+  };
   /** Optional per-call SIP routing hints. Carrier AMD requires trunk/provider support. */
   telephony?: {
     region?: string;
