@@ -526,8 +526,10 @@ export interface VoiceDialParams {
   /** Server-side wall-clock cap in seconds. Values are clamped server-side to 30s-4h. */
   maxDurationSeconds?: number;
   /**
-   * Optional per-call turn-taking overrides. `greetFirst` is default off; when
-   * true, the greeting plays immediately while AMD classifies in the background.
+   * Optional per-call turn-taking overrides. `greetFirst` defaults ON for
+   * outbound (worker-side, 2026-07-03): the greeting plays immediately while
+   * AMD classifies in the background. Pass false to hold the greeting for the
+   * AMD verdict.
    */
   turnHandling?: {
     profile?: 'conversational' | 'ivr' | 'ivr_patient';
