@@ -845,7 +845,10 @@ export interface AgentExtractionField {
    */
   name: string;
   type: 'string' | 'number' | 'boolean' | 'enum';
-  /** Instruction the LLM uses to extract this field. 1–500 characters. */
+  /**
+   * Instruction the LLM uses to extract this field. 1 to 10,000 characters,
+   * and at most 40,000 characters combined across all fields on the webhook.
+   */
   description: string;
   /**
    * Allowed values — required (and only valid) when `type` is `'enum'`.
