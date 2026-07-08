@@ -520,6 +520,23 @@ export interface VoiceDialParams {
   systemPrompt?: string;
   /** Optional first utterance. `null` is not accepted by phone dial; omit to use the agent default. */
   firstMessage?: string;
+  /**
+   * Call-time values for `{{name}}` placeholders in `systemPrompt` /
+   * `firstMessage`. The worker substitutes bound names just before it renders
+   * the prompt / speaks the greeting; any unbound `{{slot}}` is stripped to
+   * blank so the caller never hears literal braces. Omit to speak both verbatim.
+   *
+   * @example
+   * ```ts
+   * await speko.voice.dial({
+   *   to: '+12015551234',
+   *   agentId: 'ag_123',
+   *   systemPrompt: 'You are {{agent_name}} calling {{customer}} about their order.',
+   *   variables: { agent_name: 'Ava', customer: 'Mr. Lee' },
+   * });
+   * ```
+   */
+  variables?: Record<string, string>;
   llm?: { temperature?: number; maxTokens?: number };
   ttsOptions?: { sampleRate?: number; speed?: number };
   sttOptions?: { keywords?: string[] };
