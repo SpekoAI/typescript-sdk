@@ -556,7 +556,7 @@ export interface VoiceDialParams {
       minDuration?: number;
       minWords?: number;
     };
-    turnDetection?: boolean;
+    turnDetection?: boolean | 'stt';
     contextThreshold?: boolean;
     greetFirst?: boolean;
   };
