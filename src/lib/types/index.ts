@@ -521,18 +521,28 @@ export interface VoiceDialParams {
   /** Optional first utterance. `null` is not accepted by phone dial; omit to use the agent default. */
   firstMessage?: string;
   /**
-   * Call-time values for `{{name}}` placeholders in `systemPrompt` /
-   * `firstMessage`. The worker substitutes bound names just before it renders
-   * the prompt / speaks the greeting; any unbound `{{slot}}` is stripped to
-   * blank so the caller never hears literal braces. Omit to speak both verbatim.
+   * Call-time values for template variables in `systemPrompt` / `firstMessage`.
+   * Sending this key (even `{}`) — or dialing with an agent that declares
+   * variables in its registry — compiles both strings as Liquid templates at
+   * call-create time: `{{name}}` interpolation, `{% if %}` / `{% elsif %}`
+   * branching, `| default:` filters, and platform-provided `system.*` values
+   * (`system.now`, `system.caller_number`, `system.call_id`, …).
+   *
+   * Resolution per variable: this map → the agent registry's default → inline
+   * `| default:` → the request fails with 400 `MISSING_TEMPLATE_VARIABLES`
+   * listing every unresolved name. Keys under `system.` are rejected. Omit
+   * this field entirely to send both strings verbatim (no compilation).
    *
    * @example
    * ```ts
    * await speko.voice.dial({
    *   to: '+12015551234',
    *   agentId: 'ag_123',
-   *   systemPrompt: 'You are {{agent_name}} calling {{customer}} about their order.',
-   *   variables: { agent_name: 'Ava', customer: 'Mr. Lee' },
+   *   systemPrompt:
+   *     'You are {{agent_name | default: "Ava"}} calling {{customer}}. ' +
+   *     '{% if plan == "premium" %}Offer the priority upgrade.{% endif %} ' +
+   *     'The current time is {{system.now}}.',
+   *   variables: { customer: 'Mr. Lee', plan: 'premium' },
    * });
    * ```
    */
@@ -955,6 +965,20 @@ export interface AgentWebhooksUpdate {
   status?: AgentLifecycleWebhookUpdate | null;
 }
 
+/**
+ * One prompt-variable registry entry. `defaultValue` fills the variable when a
+ * session/dial call omits it (empty string = declared optional: renders blank
+ * and `{% if %}` branches false). Without a default the variable is required
+ * per call — omitting it fails session create with 400
+ * `MISSING_TEMPLATE_VARIABLES`. Names may not use the reserved `system.`
+ * namespace.
+ */
+export interface AgentPromptVariable {
+  name: string;
+  defaultValue?: string;
+  description?: string;
+}
+
 export interface AgentRow {
   id: string;
   organizationId: string;
@@ -968,6 +992,8 @@ export interface AgentRow {
   backgroundAudio: AgentBackgroundAudio | null;
   speechNormalization: AgentSpeechNormalization | null;
   webhooks: AgentWebhooksSerialized | null;
+  /** Prompt-variable registry. Returned on single-agent reads; null = empty. */
+  promptVariables?: AgentPromptVariable[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -983,6 +1009,8 @@ export interface AgentCreateParams {
   backgroundAudio?: AgentBackgroundAudio;
   speechNormalization?: AgentSpeechNormalization;
   webhooks?: AgentWebhooksCreate;
+  /** Declare the prompt's `{{variables}}` with per-agent defaults/descriptions. */
+  promptVariables?: AgentPromptVariable[];
 }
 
 export type AgentUpdateParams = Partial<Omit<AgentCreateParams, 'webhooks'>> & {
