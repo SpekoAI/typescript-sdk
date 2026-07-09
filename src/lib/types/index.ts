@@ -951,18 +951,36 @@ export interface AgentWebhooksSerialized {
   preCall?: AgentLifecycleWebhookSerialized;
   postCall?: AgentLifecycleWebhookSerialized;
   status?: AgentLifecycleWebhookSerialized;
+  /** Dedicated `call.analysis` webhook — LLM analysis results only. */
+  analysis?: AgentLifecycleWebhookSerialized;
+  /** Dedicated `call.recording` webhook — fires when the recording turns terminal. */
+  recording?: AgentLifecycleWebhookSerialized;
 }
 
 export interface AgentWebhooksCreate {
   preCall?: AgentLifecycleWebhookCreate;
   postCall?: AgentLifecycleWebhookCreate;
   status?: AgentLifecycleWebhookCreate;
+  /**
+   * Dedicated `call.analysis` webhook. Delivered once per call when the LLM
+   * analysis completes: summary, outcome, structured_data, and custom_data —
+   * without the transcript/cost/recording of the combined `call.report`.
+   */
+  analysis?: AgentLifecycleWebhookCreate;
+  /**
+   * Dedicated `call.recording` webhook. Delivered once per call when the
+   * recording reaches a terminal state — `ready` carries the presigned
+   * `recording_url` (7-day TTL), `failed` carries `recording_url: null`.
+   */
+  recording?: AgentLifecycleWebhookCreate;
 }
 
 export interface AgentWebhooksUpdate {
   preCall?: AgentLifecycleWebhookUpdate | null;
   postCall?: AgentLifecycleWebhookUpdate | null;
   status?: AgentLifecycleWebhookUpdate | null;
+  analysis?: AgentLifecycleWebhookUpdate | null;
+  recording?: AgentLifecycleWebhookUpdate | null;
 }
 
 /**
