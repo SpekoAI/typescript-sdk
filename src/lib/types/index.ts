@@ -122,6 +122,8 @@ export interface TranscribeOptions extends RoutingIntent {
    * ElevenLabs Scribe → `biased_keywords`. Casing matters for proper nouns.
    */
   keywords?: readonly string[];
+  /** Provider-facing STT overrides. Routing continues to use the inherited language. */
+  sttOptions?: { language?: string };
 }
 
 export interface TranscribeResult {
@@ -549,7 +551,7 @@ export interface VoiceDialParams {
   variables?: Record<string, string>;
   llm?: { temperature?: number; maxTokens?: number };
   ttsOptions?: { sampleRate?: number; speed?: number };
-  sttOptions?: { keywords?: string[] };
+  sttOptions?: { keywords?: string[]; language?: string };
   /** Server-side wall-clock cap in seconds. Values are clamped server-side to 30s-4h. */
   maxDurationSeconds?: number;
   /**

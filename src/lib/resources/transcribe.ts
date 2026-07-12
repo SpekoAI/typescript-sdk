@@ -65,9 +65,12 @@ export class Transcribe {
     if (options.constraints) {
       headers['X-Speko-Constraints'] = JSON.stringify(options.constraints);
     }
-    if (options.keywords && options.keywords.length > 0) {
+    const keywords = options.keywords && options.keywords.length > 0 ? options.keywords : undefined;
+    const sttLanguage = options.sttOptions?.language;
+    if (keywords !== undefined || sttLanguage !== undefined) {
       headers['X-Speko-Stt-Options'] = JSON.stringify({
-        keywords: [...options.keywords],
+        ...(keywords !== undefined && { keywords: [...keywords] }),
+        ...(sttLanguage !== undefined && { language: sttLanguage }),
       });
     }
 
