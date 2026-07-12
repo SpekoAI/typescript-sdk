@@ -581,9 +581,8 @@ export interface VoiceDialParams {
   /** Free-form metadata round-tripped to your webhooks. */
   metadata?: Record<string, unknown>;
   /**
-   * Enable the agent-initiated end_call tool for this call. When true, the
-   * agent can hang up once the conversation is genuinely complete. This enables
-   * a tool only; it grants no new outbound, dial, or billing capability.
+   * @deprecated The agent-initiated end_call tool is now always on; the server
+   * accepts this field for compat but ignores it.
    */
   endCall?: { enabled: boolean };
 }
