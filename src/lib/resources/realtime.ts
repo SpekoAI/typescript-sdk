@@ -155,7 +155,7 @@ class BrowserRealtimeHandle implements RealtimeSessionHandle {
       this.emit({
         type: 'audio',
         pcm: new Uint8Array(data),
-        sampleRate: 24000,
+        sampleRate: this.outputSampleRate,
       });
       return;
     }

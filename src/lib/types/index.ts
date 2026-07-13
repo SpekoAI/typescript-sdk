@@ -421,7 +421,7 @@ export type CompleteStreamEvent =
 
 // --- Realtime (S2S) ---------------------------------------------------------
 
-export type RealtimeProvider = 'openai' | 'google' | 'xai' | 'inworld' | 'alibaba';
+export type RealtimeProvider = 'openai' | 'google' | 'xai' | 'inworld' | 'alibaba' | 'speko-lab';
 
 export interface RealtimeToolSpec {
   name: string;
