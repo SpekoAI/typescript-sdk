@@ -830,6 +830,13 @@ export interface AgentStackPreferences {
 export interface AgentSttOptions {
   /** Vocabulary keywords forwarded to whichever STT provider the router picks. */
   keywords?: string[];
+  /**
+   * STT stream-language override. A BCP-47-ish tag ('en', 'es-MX'), a
+   * provider keyword like Deepgram's 'multi', or 'auto' to let the provider
+   * detect the spoken language itself (Soniox auto-detects when hints are
+   * omitted). Never affects stack routing — that keeps the agent language.
+   */
+  language?: string;
 }
 
 /**
