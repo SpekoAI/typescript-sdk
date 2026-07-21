@@ -599,6 +599,36 @@ export interface VoiceDialResult {
   from: string;
 }
 
+// ─── Sessions ────────────────────────────────────────────────────────
+
+/**
+ * One turn from `GET /v1/sessions/:id/transcript` — the lightweight live
+ * transcript poll. Note the camelCase keys: this endpoint's serialization
+ * differs from the snake_case `CallTranscriptEntry` embedded in `CallDetail`.
+ */
+export interface SessionTranscriptEntry {
+  id: string;
+  index: number;
+  source: 'user' | 'agent' | 'system';
+  text: string;
+  startedAt: string;
+  endedAt: string | null;
+  provider: string | null;
+  model: string | null;
+  /** Per-stage latency legs (ms) — null on user/system turns. */
+  eouMs: number | null;
+  llmTtftMs: number | null;
+  ttsTtfbMs: number | null;
+  latencyStatus: 'partial' | 'complete' | 'interrupted' | 'error' | null;
+  conversationalLatencyMs: number | null;
+  /** Tool calls the agent made on this turn (empty when none). */
+  toolCalls: { name: string; args: string }[];
+}
+
+export interface SessionTranscript {
+  entries: SessionTranscriptEntry[];
+}
+
 // ─── Phone numbers ───────────────────────────────────────────────────
 
 export type PhoneNumberDirection = 'inbound' | 'outbound' | 'both';
@@ -1152,6 +1182,31 @@ export interface FinalizeCallReportResult {
 
 export interface CallRecording {
   url: string;
+}
+
+export interface WebJoinParams {
+  /** Display name other participants (and transcripts) see for the joiner. */
+  displayName?: string;
+}
+
+export interface WebJoinResult {
+  /** LiveKit access token for the live call's room. Mint at click time — short TTL. */
+  token: string;
+  /** Public LiveKit URL the browser connects to (pass both to `@spekoai/client`). */
+  url: string;
+  /** Participant identity minted for this join (unique per join). */
+  identity: string;
+  roomName: string;
+  /** ISO timestamp the token stops being accepted for NEW connections. */
+  expiresAt: string;
+}
+
+export interface EndCallResult {
+  ok: true;
+  /** `ending` when teardown was requested; `already_ended` when the call was over. */
+  status: 'ending' | 'already_ended';
+  /** ISO timestamp, present only with `already_ended`. */
+  ended_at?: string;
 }
 
 export interface CallEvent {

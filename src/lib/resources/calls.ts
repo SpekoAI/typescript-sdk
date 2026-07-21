@@ -9,9 +9,12 @@ import type {
   CallTransferResponse,
   CancelWarmTransferParams,
   CompleteWarmTransferParams,
+  EndCallResult,
   FinalizeCallReportParams,
   FinalizeCallReportResult,
   WarmTransferParams,
+  WebJoinParams,
+  WebJoinResult,
 } from '../types/index.js';
 
 export class Calls {
@@ -41,6 +44,33 @@ export class Calls {
 
   recording(callId: string): Promise<CallRecording> {
     return this.http.get<CallRecording>(`/v1/calls/${encodeURIComponent(callId)}/recording`);
+  }
+
+  /**
+   * Browser bridge-in: mint a short-lived token that joins THIS live call's
+   * room from a web client (pass `token`/`url` to `@spekoai/client`'s
+   * `VoiceConversation.create({ transportToken, transportUrl })`). Once the
+   * browser publishes audio the platform bridges it to the phone leg and
+   * mutes the agent; when the browser leaves, the agent resumes.
+   *
+   * Mint at click time — the token is short-TTL and a `409` means the call
+   * is no longer live. Concurrent/repeat joins are allowed (rejoin after a
+   * drop just calls this again).
+   */
+  webJoin(callId: string, params: WebJoinParams = {}): Promise<WebJoinResult> {
+    return this.http.post<WebJoinResult>(
+      `/v1/calls/${encodeURIComponent(callId)}/web-join`,
+      params,
+    );
+  }
+
+  /**
+   * End a live call now (kill switch): tears the room down, which hangs up
+   * every leg. Resolves with `status: 'ending'` once teardown is requested,
+   * or `status: 'already_ended'` if the call was over.
+   */
+  end(callId: string): Promise<EndCallResult> {
+    return this.http.post<EndCallResult>(`/v1/calls/${encodeURIComponent(callId)}/end`, {});
   }
 
   blindTransfer(callId: string, params: BlindTransferParams): Promise<CallTransfer> {

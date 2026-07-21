@@ -60,6 +60,7 @@ export type {
   CreditLedgerKind,
   CreditLedgerPage,
   CreditLedgerQueryParams,
+  EndCallResult,
   FinalizeCallReportParams,
   FinalizeCallReportResult,
   KeySource,
@@ -104,6 +105,8 @@ export type {
   ScheduledCallback,
   ScheduledCallbackStatus,
   ScheduledCallbacksListParams,
+  SessionTranscript,
+  SessionTranscriptEntry,
   SpekoClientOptions,
   SynthesizeOptions,
   SynthesizeResult,
@@ -125,4 +128,6 @@ export type {
   WarmTransferFallbackResult,
   WarmTransferParams,
   WarmTransferVoicemailDetection,
+  WebJoinParams,
+  WebJoinResult,
 } from './lib/types/index.js';
