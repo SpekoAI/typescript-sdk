@@ -105,6 +105,8 @@ export type {
   ScheduledCallback,
   ScheduledCallbackStatus,
   ScheduledCallbacksListParams,
+  SessionStreamEvent,
+  SessionStreamOptions,
   SessionTranscript,
   SessionTranscriptEntry,
   SpekoClientOptions,

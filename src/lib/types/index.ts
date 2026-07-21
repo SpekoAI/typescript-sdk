@@ -629,6 +629,28 @@ export interface SessionTranscript {
   entries: SessionTranscriptEntry[];
 }
 
+/**
+ * One push from `sessions.stream()` (SSE under the hood, auto-reconnecting).
+ * `end` is always the final event; transport-level reconnects and server
+ * stream rotations are handled inside the SDK and never surface here.
+ */
+export type SessionStreamEvent =
+  | { type: 'status'; status: string; endedAt: string | null }
+  | { type: 'transcript'; turn: SessionTranscriptEntry }
+  | { type: 'event'; event: CallEvent }
+  | { type: 'end'; reason: 'session_ended' };
+
+export interface SessionStreamOptions {
+  /**
+   * Resume position (`"<lastTurnIndex>:<lastEventCreatedAtMs>"`). Rarely
+   * needed — the iterator tracks it internally across reconnects; pass it
+   * only to resume a NEW iterator after your own process restarted.
+   */
+  cursor?: string;
+  /** Abort to stop streaming (the iterator returns). */
+  signal?: AbortSignal;
+}
+
 // ─── Phone numbers ───────────────────────────────────────────────────
 
 export type PhoneNumberDirection = 'inbound' | 'outbound' | 'both';

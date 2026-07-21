@@ -154,9 +154,15 @@ export class HttpClient {
     body: unknown,
     externalSignal?: AbortSignal,
     extraHeaders?: Record<string, string>,
+    /**
+     * Per-request override of the client timeout. Long-lived SSE responses
+     * (session observation) outlive the default 30 s, which would abort them
+     * mid-stream.
+     */
+    timeoutMs?: number,
   ): AsyncIterableIterator<{ event: string; data: unknown }> {
     const url = `${this.baseUrl}${path}`;
-    const { signal, cleanup } = this.buildSignal(externalSignal);
+    const { signal, cleanup } = this.buildSignal(externalSignal, timeoutMs);
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
     try {
@@ -326,12 +332,15 @@ export class HttpClient {
    * that callers can cancel in-flight requests (e.g. LiveKit Agents tearing
    * down a session) while still enforcing the client's configured timeout.
    */
-  private buildSignal(externalSignal?: AbortSignal): {
+  private buildSignal(
+    externalSignal?: AbortSignal,
+    timeoutMs?: number,
+  ): {
     signal: AbortSignal;
     cleanup: () => void;
   } {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeout);
+    const timer = setTimeout(() => controller.abort(), timeoutMs ?? this.timeout);
 
     if (externalSignal) {
       if (externalSignal.aborted) {
