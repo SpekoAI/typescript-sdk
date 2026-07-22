@@ -13,6 +13,7 @@ import { Transcribe } from './resources/transcribe.js';
 import { Usage } from './resources/usage.js';
 import { Voice } from './resources/voice.js';
 import { Voices } from './resources/voices.js';
+import { Webhooks } from './resources/webhooks.js';
 import type {
   CompleteParams,
   CompleteResult,
@@ -55,6 +56,7 @@ export class Speko {
   readonly calls: Calls;
   readonly callbacks: Callbacks;
   readonly sessions: Sessions;
+  readonly webhooks: Webhooks;
 
   private readonly transcribeResource: Transcribe;
   private readonly synthesizeResource: Synthesize;
@@ -82,6 +84,7 @@ export class Speko {
     this.calls = new Calls(http);
     this.callbacks = new Callbacks(http);
     this.sessions = new Sessions(http);
+    this.webhooks = new Webhooks(http);
     this.transcribeResource = new Transcribe(http);
     this.synthesizeResource = new Synthesize(http);
     this.completeResource = new Complete(http);

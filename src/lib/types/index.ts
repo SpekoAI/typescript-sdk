@@ -430,6 +430,8 @@ export interface RealtimeToolSpec {
 }
 
 export interface RealtimeConnectParams {
+  /** Persisted agent whose workspace webhook routes should receive lifecycle events. */
+  agentId?: string;
   provider: RealtimeProvider;
   model: string;
   voice?: string;
@@ -438,6 +440,8 @@ export interface RealtimeConnectParams {
   inputSampleRate?: 16000 | 24000;
   outputSampleRate?: 16000 | 24000;
   tools?: RealtimeToolSpec[];
+  /** Exact-match attributes used only for workspace webhook routing. Requires agentId. */
+  webhookTags?: Record<string, string>;
   metadata?: Record<string, unknown>;
   /** Max session duration in seconds. Server-capped at 1800 (30 min). */
   ttlSeconds?: number;
@@ -580,6 +584,8 @@ export interface VoiceDialParams {
       timeoutSeconds?: number;
     };
   };
+  /** Exact-match attributes used only for workspace webhook routing. Requires agentId. */
+  webhookTags?: Record<string, string>;
   /** Free-form metadata round-tripped to your webhooks. */
   metadata?: Record<string, unknown>;
   /**
@@ -1043,6 +1049,153 @@ export interface AgentWebhooksUpdate {
   recording?: AgentLifecycleWebhookUpdate | null;
 }
 
+// ─── Workspace webhooks ─────────────────────────────────────────────
+
+export type WorkspaceWebhookEventType =
+  | 'call.pre_call'
+  | 'call.status'
+  | 'call.report'
+  | 'call.analysis'
+  | 'call.recording';
+
+export type WebhookEventType =
+  | WorkspaceWebhookEventType
+  | 'imessage.received'
+  | 'imessage.reaction_received'
+  | 'imessage.sent'
+  | 'imessage.delivered'
+  | 'imessage.delivery_failed';
+
+export type WebhookDeliveryStatus =
+  | 'pending'
+  | 'delivering'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'expired';
+
+export interface WebhookEndpointAuthHeaderInput {
+  name: string;
+  /** Write-only plaintext. The server encrypts it and never returns it. */
+  value: string;
+}
+
+export interface WebhookEndpointAuthHeaderUpdate {
+  name: string;
+  /** Supply to set or rotate; omit to retain the stored value for this header name. */
+  value?: string;
+}
+
+export interface WebhookEndpointInput {
+  name: string;
+  url: string;
+  events: WorkspaceWebhookEventType[];
+  /** Defaults to true. When false, agentIds must contain at least one agent. */
+  allAgents?: boolean;
+  agentIds?: string[];
+  filterTags?: Record<string, string>;
+  headers?: Record<string, string>;
+  authHeaders?: WebhookEndpointAuthHeaderInput[];
+  timeoutMs?: number;
+  signingSecretSource?: 'workspace' | 'custom';
+  /** Write-only. Required when signingSecretSource is custom. */
+  signingSecret?: string;
+  extractionFields?: AgentExtractionField[];
+}
+
+export type WebhookEndpointUpdate = Partial<Omit<WebhookEndpointInput, 'authHeaders'>> & {
+  authHeaders?: WebhookEndpointAuthHeaderUpdate[];
+};
+
+export interface WebhookEndpoint {
+  id: string;
+  name: string;
+  url: string;
+  events: WorkspaceWebhookEventType[];
+  allAgents: boolean;
+  agentIds: string[];
+  filterTags: Record<string, string>;
+  headers: Record<string, string>;
+  authHeaders: Array<{ name: string; configured: true }>;
+  timeoutMs: number;
+  signingSecretSource: 'workspace' | 'custom';
+  hasCustomSigningSecret: boolean;
+  extractionFields: AgentExtractionField[];
+  legacyManaged: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebhookDeliveryListParams {
+  endpointId?: string;
+  event?: WebhookEventType;
+  agentId?: string;
+  status?: WebhookDeliveryStatus;
+  sessionId?: string;
+  eventId?: string;
+  from?: string;
+  to?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  eventId: string;
+  endpointId: string;
+  endpointName: string;
+  endpointKind: 'workspace' | 'imessage';
+  endpointDeleted: boolean;
+  event: WebhookEventType;
+  sessionId: string | null;
+  agentId: string | null;
+  webhookTags: Record<string, string>;
+  status: WebhookDeliveryStatus;
+  attempts: number;
+  httpStatus: number | null;
+  error: string | null;
+  occurredAt: string;
+  expiresAt: string;
+  deliveredAt: string | null;
+  createdAt: string;
+  /** False for provider-retried iMessage subscriber deliveries. */
+  canRedeliver: boolean;
+}
+
+export interface WebhookDeliveryEndpointOption {
+  id: string;
+  name: string;
+  kind: 'workspace' | 'imessage';
+  deleted: boolean;
+}
+
+export interface WebhookDeliveryPage {
+  data: WebhookDelivery[];
+  nextCursor: string | null;
+  endpointOptions: WebhookDeliveryEndpointOption[];
+}
+
+export interface WebhookDeliveryAttempt {
+  id: string;
+  attemptNumber: number;
+  trigger: 'automatic' | 'manual';
+  requestUrl: string;
+  requestHeaders: Record<string, string>;
+  requestBody: Record<string, unknown>;
+  responseStatus: number | null;
+  responseBody: string | null;
+  responseTruncated: boolean;
+  durationMs: number;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface WebhookDeliveryDetail extends Omit<WebhookDelivery, 'attempts'> {
+  attemptCount: number;
+  requestPayload: Record<string, unknown>;
+  attempts: WebhookDeliveryAttempt[];
+}
+
 /**
  * One prompt-variable registry entry. `defaultValue` fills the variable when a
  * session/dial call omits it (empty string = declared optional: renders blank
@@ -1069,6 +1222,7 @@ export interface AgentRow {
   sttOptions: AgentSttOptions | null;
   backgroundAudio: AgentBackgroundAudio | null;
   speechNormalization: AgentSpeechNormalization | null;
+  /** @deprecated Use organization-owned `speko.webhooks` endpoints. */
   webhooks: AgentWebhooksSerialized | null;
   /** Prompt-variable registry. Returned on single-agent reads; null = empty. */
   promptVariables?: AgentPromptVariable[] | null;
@@ -1086,12 +1240,14 @@ export interface AgentCreateParams {
   sttOptions?: AgentSttOptions;
   backgroundAudio?: AgentBackgroundAudio;
   speechNormalization?: AgentSpeechNormalization;
+  /** @deprecated Use `speko.webhooks.create()` after creating the agent. */
   webhooks?: AgentWebhooksCreate;
   /** Declare the prompt's `{{variables}}` with per-agent defaults/descriptions. */
   promptVariables?: AgentPromptVariable[];
 }
 
 export type AgentUpdateParams = Partial<Omit<AgentCreateParams, 'webhooks'>> & {
+  /** @deprecated Use `speko.webhooks.update()` for organization-owned endpoints. */
   webhooks?: AgentWebhooksUpdate | null;
 };
 
@@ -1122,6 +1278,16 @@ export interface CallCostLine {
   costMicroUsd: string;
 }
 
+export interface CallReportWebhookDelivery {
+  endpointId: string;
+  deliveryId: string;
+  eventId: string;
+  delivered: boolean;
+  status: number | null;
+  error: string | null;
+  createdAt: string;
+}
+
 export interface CallReport {
   session_id: string;
   organization_id: string;
@@ -1139,11 +1305,18 @@ export interface CallReport {
   analysis_model: string | null;
   analysis_error: string | null;
   analysis_completed_at: string | null;
+  /** @deprecated Aggregate retained through the current SDK major version. */
   post_call_webhook_status: 'not_configured' | 'pending' | 'delivered' | 'failed';
+  /** @deprecated Aggregate retained through the current SDK major version. */
   post_call_webhook_attempts: number;
+  /** @deprecated Aggregate retained through the current SDK major version. */
   post_call_webhook_next_retry_at: string | null;
+  /** @deprecated Aggregate retained through the current SDK major version. */
   post_call_webhook_delivered_at: string | null;
+  /** @deprecated Aggregate retained through the current SDK major version. */
   post_call_webhook_error: string | null;
+  /** Canonical per-endpoint results; singular post-call fields are deprecated aggregates. */
+  webhook_deliveries: CallReportWebhookDelivery[];
   created_at: string;
   updated_at: string;
 }
@@ -1199,7 +1372,9 @@ export interface FinalizeCallReportResult {
   summary: string;
   outcome: string;
   cost_micro_usd: string;
+  /** @deprecated Aggregate retained through the current SDK major version. */
   webhook: unknown;
+  webhook_deliveries: CallReportWebhookDelivery[];
 }
 
 export interface CallRecording {

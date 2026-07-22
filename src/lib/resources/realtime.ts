@@ -29,6 +29,7 @@ export class Realtime {
   async connect(params: RealtimeConnectParams): Promise<RealtimeSessionHandle> {
     const response = await this.http.post<SessionCreateResponse>('/v1/sessions', {
       mode: 's2s',
+      agentId: params.agentId,
       s2s: {
         provider: params.provider,
         model: params.model,
@@ -39,6 +40,7 @@ export class Realtime {
         outputSampleRate: params.outputSampleRate,
         tools: params.tools,
       },
+      webhookTags: params.webhookTags,
       metadata: params.metadata,
       ttlSeconds: params.ttlSeconds,
     });
