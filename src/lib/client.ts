@@ -11,7 +11,7 @@ import { Sessions } from './resources/sessions.js';
 import { Synthesize } from './resources/synthesize.js';
 import { Transcribe } from './resources/transcribe.js';
 import { Usage } from './resources/usage.js';
-import { Voice } from './resources/voice.js';
+import { CallControl, Voice } from './resources/voice.js';
 import { Voices } from './resources/voices.js';
 import { Webhooks } from './resources/webhooks.js';
 import type {
@@ -49,6 +49,12 @@ export class Speko {
   readonly credits: Credits;
   readonly realtime: Realtime;
   readonly voice: Voice;
+  /**
+   * Programmable voice: `controlId`-addressed call control for human calls,
+   * plus broker presence. See {@link CallControl} for the Telnyx Call Control
+   * mapping — including where it deliberately differs.
+   */
+  readonly callControl: CallControl;
   readonly voices: Voices;
   readonly phoneNumbers: PhoneNumbers;
   readonly agents: Agents;
@@ -77,6 +83,7 @@ export class Speko {
     this.credits = new Credits(http);
     this.realtime = new Realtime(http);
     this.voice = new Voice(http);
+    this.callControl = new CallControl(http);
     this.voices = new Voices(http);
     this.phoneNumbers = new PhoneNumbers(http);
     this.agents = new Agents(http);

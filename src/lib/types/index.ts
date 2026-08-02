@@ -1,3 +1,10 @@
+import type {
+  CallDirection,
+  CallJoinCredentials,
+  CallResource,
+  CallStatus,
+} from '../voice-contract.js';
+
 /** Options for creating a Speko client. */
 export interface SpekoClientOptions {
   /** API key for authentication. */
@@ -704,6 +711,13 @@ export interface PhoneNumberRow {
    * dispatch_metadata_template.
    */
   agentId: string | null;
+  /**
+   * Inbound destination when this number answers to a HUMAN rather than an
+   * agent — the `user.id` of the broker whose softphone is rung. Mutually
+   * exclusive with `agentId`: assigning one clears the other, because a number
+   * routed to a broker is provisioned so that no agent joins ahead of them.
+   */
+  routeToUserId: string | null;
   setupStatus: PhoneNumberSetupStatus;
   nextChargeAt: string;
   lastChargedAt: string | null;
@@ -752,6 +766,13 @@ export interface PhoneNumberUpdateParams {
   label?: string | null;
   /** Pass `null` to unlink, a string to relink. */
   agentId?: string | null;
+  /**
+   * Route inbound calls on this number to a human broker's softphone instead of
+   * an agent — pass a `user.id` in your organization, or `null` to stop. Setting
+   * it clears `agentId`, and setting `agentId` clears it; sending both in one
+   * request is a validation error. Requires the human-calling feature.
+   */
+  routeToUserId?: string | null;
 }
 
 export interface AvailablePhoneNumber {
@@ -1051,12 +1072,53 @@ export interface AgentWebhooksUpdate {
 
 // ─── Workspace webhooks ─────────────────────────────────────────────
 
+/**
+ * Everything a workspace webhook endpoint can subscribe to.
+ *
+ * Two families, and they behave differently on the wire:
+ *
+ * **AI voice-session events** (`call.pre_call` … `call.recording`) describe one
+ * `voice_session` as it progresses, and carry a `session_id`.
+ *
+ * **Programmable-voice control events** (`call.initiated` … `call.hangup`) are
+ * the webhook projection of the human-calling event stream — the same events
+ * {@link CallControl.events} returns. A human call is not a `voice_session`, so
+ * there is no session id to correlate on: the payload carries `call_id`,
+ * `control_id` (null for call-scoped events that belong to no single leg),
+ * `event_id` and `occurred_at`, merged with the event's own payload, and
+ * `call_id` is the correlation key.
+ *
+ * Control events are delivered **once, without automatic retry**. Only
+ * `call.report`, `call.analysis` and `call.recording` are durable — for those, a
+ * failed delivery is re-attempted on a backoff. A control event that misses its
+ * endpoint is gone from the webhook feed; the call's own event history
+ * ({@link CallControl.events}) is the durable record, so reconcile from there
+ * rather than treating the webhook as a queue.
+ */
 export type WorkspaceWebhookEventType =
   | 'call.pre_call'
   | 'call.status'
   | 'call.report'
   | 'call.analysis'
-  | 'call.recording';
+  | 'call.recording'
+  | 'call.initiated'
+  | 'call.ringing'
+  | 'call.answered'
+  | 'call.bridged'
+  | 'call.hold'
+  | 'call.unhold'
+  | 'call.mute'
+  | 'call.unmute'
+  // No `call.dtmf.received`: an inbound keypress reaches the platform as an
+  // in-room data packet addressed to room participants, never to the webhook
+  // receiver, so there is no server-side producer to subscribe to. Read it off
+  // the room's data channel in the browser instead.
+  | 'call.dtmf.sent'
+  | 'call.transfer.initiated'
+  | 'call.transfer.completed'
+  | 'call.transfer.failed'
+  | 'call.leg.hangup'
+  | 'call.hangup';
 
 export type WebhookEventType =
   | WorkspaceWebhookEventType
@@ -1768,4 +1830,61 @@ export interface KnowledgeBaseDocumentPollOptions {
   intervalMs?: number;
   /** Total timeout in milliseconds. Default 120000 (2 min). */
   timeoutMs?: number;
+}
+
+// --- Programmable voice -----------------------------------------------------
+
+/**
+ * Parameters for {@link CallControl.dial} — an outbound PSTN call placed by a
+ * human broker, not by an AI agent. For an agent dial see
+ * {@link VoiceDialParams}.
+ */
+export interface CallControlDialParams {
+  /** Destination in E.164 format (e.g. "+12015551234"). */
+  to: string;
+  /**
+   * Caller ID to present, E.164. Must be a number your org owns; falls back to
+   * the org's default outbound number when omitted.
+   */
+  from?: string;
+  /** Opaque key/values stored on the call and echoed back on every read. */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * What {@link CallControl.dial} resolves to. The join credentials come back
+ * *with* the call rather than from a second request, because the dialing
+ * broker's softphone has to already be in the room when the far end answers —
+ * fetch them afterwards and the first moments of the call are silence.
+ *
+ * Destructure both halves; `call` alone is not enough to be heard:
+ *
+ * ```ts
+ * const { call, join } = await speko.callControl.dial({ to: '+12015551234' });
+ * ```
+ */
+export interface CallControlDialResult {
+  /** The call and both of its legs — the `controlId`s every later command needs. */
+  readonly call: CallResource;
+  /** Room credentials for the dialing broker's own browser leg. */
+  readonly join: CallJoinCredentials;
+}
+
+/** Filters for {@link CallControl.list}. All optional; all AND-ed together. */
+export interface CallControlListParams {
+  /**
+   * Typed against the contract's `CallStatus` on purpose: the server validates
+   * `?status=` against the same enum and rejects anything else, so a typo is a
+   * compile error here instead of a `VALIDATION_ERROR` at runtime.
+   */
+  status?: CallStatus;
+  direction?: CallDirection;
+  /**
+   * Only calls with a browser leg owned by this broker. Unlike dialing, reading
+   * another broker's calls is allowed — a supervisor view is a legitimate use of
+   * an org-scoped credential.
+   */
+  userId?: string;
+  /** Newest first. Server-side default and cap apply. */
+  limit?: number;
 }
