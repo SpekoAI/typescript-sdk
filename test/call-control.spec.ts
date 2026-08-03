@@ -24,7 +24,7 @@ function leg(overrides: Partial<CallLegResource> = {}): CallLegResource {
     kind: 'browser',
     direction: 'outbound',
     status: 'active',
-    userId: 'user_1',
+    brokerId: 'broker_1',
     phoneNumber: null,
     muted: false,
     onHold: false,
@@ -50,7 +50,7 @@ const call: CallResource = {
       controlId: 'ctl_pstn',
       kind: 'pstn',
       status: 'ringing',
-      userId: null,
+      brokerId: null,
       phoneNumber: '+12015551234',
       answeredAt: null,
     }),
@@ -70,7 +70,7 @@ const credentials: CallJoinCredentials = {
 const dialResult: CallControlDialResult = { call, join: credentials };
 
 function client(): Speko {
-  return new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test' });
+  return new Speko({ apiKey: 'sk_test', brokerId: 'broker_1', baseUrl: 'https://api.test' });
 }
 
 describe('speko.callControl calls', () => {
@@ -93,11 +93,11 @@ describe('speko.callControl calls', () => {
       }),
     );
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    // Exactly the fields the server's `.strict()` dial schema accepts — no
-    // `userId`: the browser leg is always the authenticated user's.
+    // The SDK instance owns broker identity; individual method calls do not.
     expect(JSON.parse(init.body as string)).toEqual({
       to: '+12015551234',
       from: '+14155550000',
+      brokerId: 'broker_1',
     });
     expect(dialed.legs.map((l) => l.controlId)).toEqual(['ctl_browser', 'ctl_pstn']);
     expect(join).toEqual(credentials);
@@ -114,10 +114,10 @@ describe('speko.callControl calls', () => {
   it('serializes list filters into the query string and omits absent ones', async () => {
     const fetchMock = mockFetch(jsonResponse({ calls: [call] }));
 
-    await client().callControl.list({ status: 'active', userId: 'user_1', limit: 10 });
+    await client().callControl.list({ status: 'active', brokerId: 'broker_1', limit: 10 });
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      'https://api.test/v1/voice/calls?status=active&userId=user_1&limit=10',
+      'https://api.test/v1/voice/calls?status=active&brokerId=broker_1&limit=10',
     );
   });
 
@@ -139,7 +139,7 @@ describe('speko.callControl calls', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.test/v1/voice/legs/ctl%2Fbrowser/join');
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body as string)).toEqual({});
+    expect(JSON.parse(init.body as string)).toEqual({ brokerId: 'broker_1' });
     expect(joined).toEqual(credentials);
   });
 
@@ -234,7 +234,7 @@ describe('speko.callControl commands', () => {
 
 describe('speko.callControl presence', () => {
   const presence = {
-    userId: 'user_1',
+    brokerId: 'broker_1',
     status: 'available',
     lastSeenAt: ISO,
     reachable: true,
@@ -248,7 +248,10 @@ describe('speko.callControl presence', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.test/v1/voice/presence');
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe('PUT');
-    expect(JSON.parse(init.body as string)).toEqual({ status: 'available' });
+    expect(JSON.parse(init.body as string)).toEqual({
+      status: 'available',
+      brokerId: 'broker_1',
+    });
   });
 
   it('sets an explicit status', async () => {
@@ -258,6 +261,7 @@ describe('speko.callControl presence', () => {
 
     expect(JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string)).toEqual({
       status: 'busy',
+      brokerId: 'broker_1',
     });
     expect(updated.status).toBe('busy');
   });
@@ -269,19 +273,31 @@ describe('speko.callControl presence', () => {
     await speko.callControl.heartbeat();
     expect(beat.mock.calls[0]?.[0]).toBe('https://api.test/v1/voice/presence/heartbeat');
     expect((beat.mock.calls[0]?.[1] as RequestInit).method).toBe('POST');
+    expect(JSON.parse((beat.mock.calls[0]?.[1] as RequestInit).body as string)).toEqual({
+      brokerId: 'broker_1',
+    });
 
     const token = mockFetch(
       jsonResponse({
         token: 'jwt',
         url: 'wss://livekit.test',
-        identity: 'user_1',
-        roomName: 'presence:user_1',
+        identity: 'broker_1',
+        roomName: 'presence:org_1:broker_1',
         expiresAt: ISO,
       }),
     );
     const credentials = await speko.callControl.presenceToken();
     expect(token.mock.calls[0]?.[0]).toBe('https://api.test/v1/voice/presence/token');
-    expect(credentials.roomName).toBe('presence:user_1');
+    expect(JSON.parse((token.mock.calls[0]?.[1] as RequestInit).body as string)).toEqual({
+      brokerId: 'broker_1',
+    });
+    expect(credentials.roomName).toBe('presence:org_1:broker_1');
+  });
+
+  it('fails locally when a broker-scoped method is used without brokerId', async () => {
+    const speko = new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test' });
+
+    expect(() => speko.callControl.heartbeat()).toThrow(/brokerId is required/);
   });
 });
 

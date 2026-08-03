@@ -9,6 +9,8 @@ import type {
 export interface SpekoClientOptions {
   /** API key for authentication. */
   apiKey: string;
+  /** Org-defined broker identity used by human-calling methods. */
+  brokerId?: string;
   /** Base URL of the Speko API. Defaults to https://api.speko.dev */
   baseUrl?: string;
   /** Alias for {@link SpekoClientOptions.baseUrl}. If both are set, `baseUrl` wins. */
@@ -713,11 +715,11 @@ export interface PhoneNumberRow {
   agentId: string | null;
   /**
    * Inbound destination when this number answers to a HUMAN rather than an
-   * agent — the `user.id` of the broker whose softphone is rung. Mutually
+   * agent — the org-defined broker whose softphone is rung. Mutually
    * exclusive with `agentId`: assigning one clears the other, because a number
    * routed to a broker is provisioned so that no agent joins ahead of them.
    */
-  routeToUserId: string | null;
+  routeToBrokerId: string | null;
   setupStatus: PhoneNumberSetupStatus;
   nextChargeAt: string;
   lastChargedAt: string | null;
@@ -768,11 +770,11 @@ export interface PhoneNumberUpdateParams {
   agentId?: string | null;
   /**
    * Route inbound calls on this number to a human broker's softphone instead of
-   * an agent — pass a `user.id` in your organization, or `null` to stop. Setting
+   * an agent — pass your org-defined broker id, or `null` to stop. Setting
    * it clears `agentId`, and setting `agentId` clears it; sending both in one
    * request is a validation error. Requires the human-calling feature.
    */
-  routeToUserId?: string | null;
+  routeToBrokerId?: string | null;
 }
 
 export interface AvailablePhoneNumber {
@@ -1884,7 +1886,7 @@ export interface CallControlListParams {
    * another broker's calls is allowed — a supervisor view is a legitimate use of
    * an org-scoped credential.
    */
-  userId?: string;
+  brokerId?: string;
   /** Newest first. Server-side default and cap apply. */
   limit?: number;
 }

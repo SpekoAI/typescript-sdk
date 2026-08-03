@@ -87,9 +87,8 @@ integration ports one command to one command.
 // Come online so inbound can ring you, and hold the presence connection open.
 import { PRESENCE_STALE_AFTER_MS } from '@spekoai/sdk';
 
-// Presence and dialing act as a *person*, so authenticate as one — an OAuth
-// access token or dashboard session, not an org-wide API key. See below.
-const speko = new Speko({ apiKey: brokerOAuthAccessToken });
+// The API key authenticates the org; brokerId identifies this softphone.
+const speko = new Speko({ apiKey: process.env.SPEKO_API_KEY, brokerId: 'broker-42' });
 
 await speko.callControl.register();
 const presence = await speko.callControl.presenceToken(); // → { token, url, ... }
@@ -138,15 +137,12 @@ stream. The same events can be delivered as workspace webhooks (`call.initiated`
 … `call.hangup`); those are sent once, without automatic retry, so treat
 `events` as the durable record and reconcile from it.
 
-### Authentication: half of this surface needs a user, not an API key
+### Broker identity
 
-An API key authenticates an *organization*; it names no person. `dial`, `join`,
-`register`, `heartbeat`, `setStatus` and `presenceToken` all act as a specific
-broker, so under an API key they fail with `USER_REQUIRED` (HTTP 403). There is
-no `userId` parameter to get around it — a workspace-wide credential that could
-dial or answer as any broker would be an impersonation hole. Pass an **OAuth
-access token** (or a dashboard session token) as `apiKey` instead; the user is
-resolved from the token.
+The API key authenticates the organization. `brokerId`, supplied once to
+`new Speko({ apiKey, brokerId })`, identifies the softphone. The SDK includes it
+automatically on `dial`, `join`, `register`, `heartbeat`, `setStatus`, and
+`presenceToken`.
 
 The command surface — `answer`, `hangup`, `hold`/`unhold`, `mute`/`unmute`,
 `dtmf`, `bridge`, `transfer`, plus `get`, `list`, `events` — accepts API keys on

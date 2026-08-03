@@ -26,6 +26,7 @@ import type {
   TranscribeResult,
   TranscribeStreamEvent,
 } from './types/index.js';
+import { BROKER_ID_PATTERN } from './voice-contract.js';
 
 const DEFAULT_BASE_URL = 'https://api.speko.dev';
 const DEFAULT_TIMEOUT = 30_000;
@@ -72,6 +73,11 @@ export class Speko {
     if (!options.apiKey) {
       throw new Error('Speko: apiKey is required. Get one at https://platform.speko.dev/api-keys');
     }
+    if (options.brokerId !== undefined && !BROKER_ID_PATTERN.test(options.brokerId)) {
+      throw new Error(
+        'Speko: brokerId must start with a letter or digit and contain only letters, digits, dot, underscore, or hyphen (max 128 characters)',
+      );
+    }
 
     const http = new HttpClient({
       baseUrl: options.baseUrl ?? options.baseURL ?? DEFAULT_BASE_URL,
@@ -83,7 +89,7 @@ export class Speko {
     this.credits = new Credits(http);
     this.realtime = new Realtime(http);
     this.voice = new Voice(http);
-    this.callControl = new CallControl(http);
+    this.callControl = new CallControl(http, options.brokerId);
     this.voices = new Voices(http);
     this.phoneNumbers = new PhoneNumbers(http);
     this.agents = new Agents(http);

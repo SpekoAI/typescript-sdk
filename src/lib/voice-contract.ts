@@ -64,6 +64,9 @@ export type CallLegStatus = 'initiating' | 'ringing' | 'active' | 'held' | 'ende
  */
 export type CallLegKind = 'browser' | 'pstn' | 'agent';
 
+/** Valid org-defined broker ids accepted by the human-calling API. */
+export const BROKER_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
 /** One party on a call. The unit every command is addressed to. */
 export interface CallLegResource {
   readonly id: string;
@@ -73,8 +76,8 @@ export interface CallLegResource {
   readonly kind: CallLegKind;
   readonly direction: CallDirection;
   readonly status: CallLegStatus;
-  /** Broker `user.id`, when `kind === 'browser'`. */
-  readonly userId: string | null;
+  /** Org-defined broker identity when `kind === 'browser'`; null otherwise. */
+  readonly brokerId: string | null;
   /** E.164 of the far end, when `kind === 'pstn'`. */
   readonly phoneNumber: string | null;
   readonly muted: boolean;
@@ -239,7 +242,7 @@ export type BrokerPresenceStatus = 'available' | 'busy' | 'away' | 'offline';
 export const PRESENCE_STALE_AFTER_MS = 90_000;
 
 export interface BrokerPresenceResource {
-  readonly userId: string;
+  readonly brokerId: string;
   readonly status: BrokerPresenceStatus;
   readonly lastSeenAt: string;
   /** False once the heartbeat has gone stale, regardless of `status`. */
@@ -297,8 +300,8 @@ export interface RingOffer {
   readonly controlId: string;
   readonly roomName: string;
   readonly caller: {
-    /** Broker `user.id` on an internal (broker-to-broker) call; null when the caller is a phone. */
-    readonly userId: string | null;
+    /** Org-defined broker id on an internal call; null when the caller is a phone. */
+    readonly brokerId: string | null;
     readonly name: string | null;
     /** E.164 of the calling phone, when the call arrived over the PSTN. */
     readonly phoneNumber: string | null;
@@ -342,7 +345,6 @@ export interface CallEventNotice {
 export const VOICE_ERROR_CODES = {
   disabled: 'HUMAN_CALLING_DISABLED',
   unconfigured: 'HUMAN_CALLING_UNCONFIGURED',
-  userRequired: 'USER_REQUIRED',
   notFound: 'NOT_FOUND',
   validation: 'VALIDATION_ERROR',
   legNotLive: 'LEG_NOT_LIVE',

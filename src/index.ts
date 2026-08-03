@@ -176,6 +176,7 @@ export type {
   VoiceErrorCode,
 } from './lib/voice-contract.js';
 export {
+  BROKER_ID_PATTERN,
   CALL_COMMANDS,
   CALL_EVENTS,
   DTMF_PATTERN,

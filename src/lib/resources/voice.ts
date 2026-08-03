@@ -81,31 +81,16 @@ export class Voice {
  * rather than approximated: no early-media event, and no way to tell a 486 Busy
  * from a generic rejection.
  *
- * ### Authentication — half of this surface needs a *user*, not an API key
+ * ### Broker identity
  *
- * An API key authenticates an organization, not a person. Six methods here
- * describe or act as a specific human, so they reject an API key with
- * `USER_REQUIRED` (HTTP 403): {@link CallControl.dial},
- * {@link CallControl.join}, {@link CallControl.register},
- * {@link CallControl.heartbeat}, {@link CallControl.setStatus} and
- * {@link CallControl.presenceToken}. There is no `userId` parameter to work
- * around it: letting a workspace-wide credential dial or answer as an arbitrary
- * broker would make every key a way to impersonate any user in the org.
- *
- * What works instead is a credential that carries a user: pass an **OAuth access
- * token** (or a dashboard session token) as `apiKey` — the server resolves the
- * user from the token's subject, and these methods then act as that broker.
- *
- * Everything else — `answer`, `hangup`, `hold`/`unhold`, `mute`/`unmute`,
- * `dtmf`, `bridge`, `transfer`, plus `get`, `list` and `events` — accepts an API
- * key on purpose. Server-side automation acting on a live call is the point of a
- * programmable-voice API, and the tenancy check on those is the leg's org scope,
- * not the presence of a human.
+ * Human calling uses the API key for organization authentication and the
+ * `brokerId` passed to `new Speko({ apiKey, brokerId })` for softphone identity.
+ * The SDK automatically includes that id on presence, dial, and join requests.
+ * Commands and org-wide reads do not need it on the wire.
  *
  * @example
  * ```ts
- * // Authenticate as a broker, not as the org: an API key cannot register or dial.
- * const speko = new Speko({ apiKey: brokerOAuthAccessToken });
+ * const speko = new Speko({ apiKey: process.env.SPEKO_API_KEY, brokerId: 'broker-42' });
  *
  * // Come online, then hold a presence connection open so inbound can ring you.
  * await speko.callControl.register();
@@ -122,7 +107,10 @@ export class Voice {
  * ```
  */
 export class CallControl {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly configuredBrokerId?: string,
+  ) {}
 
   // --- Calls ---------------------------------------------------------------
 
@@ -142,10 +130,7 @@ export class CallControl {
    * needs is in hand without a read: the `browser` leg is the broker's
    * softphone, the `pstn` leg is the far end.
    *
-   * **Requires a user identity.** The browser leg belongs to the authenticated
-   * user and there is no parameter to dial on someone else's behalf — see the
-   * authentication note on {@link CallControl}. Under an API key this fails with
-   * `USER_REQUIRED`.
+   * The browser leg belongs to the `brokerId` configured on this SDK instance.
    *
    * @example
    * ```ts
@@ -156,7 +141,10 @@ export class CallControl {
    * ```
    */
   dial(params: CallControlDialParams): Promise<CallControlDialResult> {
-    return this.http.post<CallControlDialResult>('/v1/voice/calls', params);
+    return this.http.post<CallControlDialResult>('/v1/voice/calls', {
+      ...params,
+      brokerId: this.brokerId(),
+    });
   }
 
   /**
@@ -175,15 +163,14 @@ export class CallControl {
    * reconnect instead of caching one; there is no endpoint that hands back a
    * token you already used.
    *
-   * Scoped to the authenticated user's own legs. A leg belonging to another
+   * Scoped to the configured broker's own legs. A leg belonging to another
    * broker returns `NOT_FOUND` — deliberately indistinguishable from a leg that
-   * does not exist, so a `controlId` cannot be probed for existence. Requires a
-   * user identity (see the authentication note on {@link CallControl}).
+   * does not exist, so a `controlId` cannot be probed for existence.
    */
   join(controlId: string): Promise<CallJoinCredentials> {
     return this.http.post<CallJoinCredentials>(
       `/v1/voice/legs/${encodeURIComponent(controlId)}/join`,
-      {},
+      { brokerId: this.brokerId() },
     );
   }
 
@@ -202,7 +189,7 @@ export class CallControl {
     const query = new URLSearchParams();
     if (params.status) query.set('status', params.status);
     if (params.direction) query.set('direction', params.direction);
-    if (params.userId) query.set('userId', params.userId);
+    if (params.brokerId) query.set('brokerId', params.brokerId);
     if (params.limit !== undefined) query.set('limit', String(params.limit));
     const suffix = query.toString() ? `?${query}` : '';
     return this.http.get<{ calls: CallResource[] }>(`/v1/voice/calls${suffix}`);
@@ -346,7 +333,7 @@ export class CallControl {
   // --- Broker presence -----------------------------------------------------
 
   /**
-   * Come online: mark the authenticated broker `available` so inbound calls can
+   * Come online: mark the configured broker `available` so inbound calls can
    * be routed to them.
    *
    * **Not a SIP registration** despite the name — there is no registrar here,
@@ -357,9 +344,7 @@ export class CallControl {
    *
    * Equivalent to `setStatus('available')`.
    *
-   * **Requires a user identity** — presence is per-broker, and an API key names
-   * no broker to make available. Under one this fails with `USER_REQUIRED`;
-   * authenticate with an OAuth access token or a dashboard session instead.
+   * Requires `brokerId` on the SDK instance.
    */
   register(): Promise<BrokerPresenceResource> {
     return this.setStatus('available');
@@ -372,12 +357,12 @@ export class CallControl {
    * black-hole calls. Call this on an interval comfortably inside that window;
    * a third of it is a good default.
    *
-   * **Requires a user identity** — it refreshes *this broker's* row, so an API
-   * key has nothing to refresh and gets `USER_REQUIRED`. Use an OAuth access
-   * token or a dashboard session.
+   * Refreshes the broker configured on this SDK instance.
    */
   heartbeat(): Promise<BrokerPresenceResource> {
-    return this.http.post<BrokerPresenceResource>('/v1/voice/presence/heartbeat', {});
+    return this.http.post<BrokerPresenceResource>('/v1/voice/presence/heartbeat', {
+      brokerId: this.brokerId(),
+    });
   }
 
   /**
@@ -385,12 +370,13 @@ export class CallControl {
    * alive while diverting inbound elsewhere; `offline` takes them out of
    * routing entirely.
    *
-   * **Requires a user identity.** Always sets the *authenticated* broker's
-   * status — there is no parameter for setting someone else's — so an API key
-   * gets `USER_REQUIRED`. Use an OAuth access token or a dashboard session.
+   * Always sets the broker configured on this SDK instance.
    */
   setStatus(status: BrokerPresenceStatus): Promise<BrokerPresenceResource> {
-    return this.http.put<BrokerPresenceResource>('/v1/voice/presence', { status });
+    return this.http.put<BrokerPresenceResource>('/v1/voice/presence', {
+      status,
+      brokerId: this.brokerId(),
+    });
   }
 
   /**
@@ -405,12 +391,19 @@ export class CallControl {
    * What arrives on that connection is a {@link PresenceMessage} — the ring
    * offers and live call events the softphone reacts to.
    *
-   * **Requires a user identity.** The room minted is the authenticated broker's
-   * own presence room; an API key names no broker and gets `USER_REQUIRED`. Use
-   * an OAuth access token or a dashboard session.
+   * The room minted belongs to the broker configured on this SDK instance.
    */
   presenceToken(): Promise<CallJoinCredentials> {
-    return this.http.post<CallJoinCredentials>('/v1/voice/presence/token', {});
+    return this.http.post<CallJoinCredentials>('/v1/voice/presence/token', {
+      brokerId: this.brokerId(),
+    });
+  }
+
+  private brokerId(): string {
+    if (this.configuredBrokerId) return this.configuredBrokerId;
+    throw new Error(
+      'Speko: brokerId is required for human-calling presence, dial, and join methods; pass it to new Speko({ apiKey, brokerId })',
+    );
   }
 
   /**
