@@ -23,9 +23,10 @@
  * Two divergences from Telnyx are worth knowing before you port anything, both
  * forced by the transport:
  *
- *  - `hold` is synthesized (mute + unsubscribe); there is no LiveKit hold
- *    primitive. Without a music-on-hold source configured, **hold is silent** —
- *    the far end hears nothing at all, not hold music.
+ *  - `hold` is synthesized by isolating subscriptions in both directions;
+ *    there is no LiveKit hold primitive. Without a music-on-hold source
+ *    configured, **hold is silent** — the far end hears nothing at all, not
+ *    hold music.
  *  - There is **no SIP registrar**. A third-party SIP endpoint (a desk phone, a
  *    softphone, another PBX) cannot register against Speko and be rung. Humans
  *    join from the browser; `browser` and `pstn` are the only human-reachable

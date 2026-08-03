@@ -67,8 +67,9 @@ export class Voice {
  * ### Porting from Telnyx — the two things that differ
  *
  * 1. **`hold` is silent by default.** There is no hold primitive on the
- *    underlying transport; hold is synthesized from mute plus unsubscribe. With
- *    no music-on-hold source configured the held party hears nothing at all.
+ *    underlying transport; hold is synthesized by isolating subscriptions in
+ *    both directions. With no music-on-hold source configured the held party
+ *    hears nothing at all.
  *    If your Telnyx flow relied on `playback_start` looping hold music, that
  *    has no equivalent yet.
  * 2. **There is no SIP registrar.** A desk phone, a third-party softphone, or
@@ -248,9 +249,10 @@ export class CallControl {
    * becomes `held`.
    *
    * **Diverges from Telnyx.** There is no hold primitive on the transport, so
-   * hold is synthesized from mute plus unsubscribe. Without a music-on-hold
-   * source configured the held party hears **silence**, not hold music — worth
-   * saying out loud in your UI, because callers read silence as a dropped call.
+   * hold is synthesized by isolating subscriptions in both directions. Without
+   * a music-on-hold source configured the held party hears **silence**, not hold
+   * music — worth saying out loud in your UI, because callers read silence as a
+   * dropped call.
    *
    * Hold is a distinct state from {@link CallControl.mute}: a muted leg still
    * hears the call, a held one does not.
