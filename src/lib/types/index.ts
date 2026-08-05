@@ -926,7 +926,13 @@ export interface AgentSttOptions {
  * keeps the v1 API simple and lets the worker map straight to the
  * `BuiltinAudioClip` enum.
  */
-export type AgentAmbientClip = 'office-ambience' | 'keyboard-typing' | 'keyboard-typing2';
+export type AgentAmbientClip =
+  | 'office-ambience'
+  | 'city-ambience'
+  | 'forest-ambience'
+  | 'crowded-room'
+  | 'keyboard-typing'
+  | 'keyboard-typing2';
 
 /**
  * Per-agent background audio. Today only ambient (continuous loop) is
@@ -937,7 +943,14 @@ export type AgentAmbientClip = 'office-ambience' | 'keyboard-typing' | 'keyboard
 export interface AgentBackgroundAudio {
   ambient?: {
     clip: AgentAmbientClip;
-    /** Linear gain in [0, 1]. Defaults to 1.0 (clip's natural level). */
+    /**
+     * Linear gain in `[0, 16]`, defaulting to 1.0 — the clip's own recorded
+     * level, which is not the same as "full volume". The built-in clips are
+     * mastered roughly 30 dB apart, so the useful range differs per clip:
+     * `office-ambience` is very quiet (about -52 LUFS) and needs ~5-10 to sit
+     * audibly under speech, `city-ambience` is about right at 1, and
+     * `crowded-room` is loud enough that it distorts past ~1.6.
+     */
     volume?: number;
   };
 }
