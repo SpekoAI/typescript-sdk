@@ -2,6 +2,7 @@ import { SpekoApiError } from '../errors.js';
 import type { HttpClient } from '../http.js';
 import type {
   CallEvent,
+  EndCallResult,
   SessionStreamEvent,
   SessionStreamOptions,
   SessionTranscript,
@@ -23,6 +24,20 @@ const STREAM_REQUEST_TIMEOUT_MS = 15 * 60_000;
  */
 export class Sessions {
   constructor(private readonly http: HttpClient) {}
+
+  /**
+   * End a live session now (kill switch): tears the room down, which drops
+   * every participant; the normal close + metering flow runs server-side.
+   * Works for any session kind — browser/WebRTC sessions included. Alias of
+   * `calls.end()`, which accepts the same session id. Resolves with
+   * `status: 'ending'` once teardown is requested, or
+   * `status: 'already_ended'` if the session was over. Use this from your
+   * backend to stop billing for a session your client can no longer reach
+   * (for example an abandoned browser tab).
+   */
+  end(sessionId: string): Promise<EndCallResult> {
+    return this.http.post<EndCallResult>(`/v1/calls/${encodeURIComponent(sessionId)}/end`, {});
+  }
 
   /**
    * Transcript of a session, oldest turn first — the point-in-time snapshot.

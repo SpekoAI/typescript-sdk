@@ -86,6 +86,26 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe('sessions.end', () => {
+  it('POSTs the calls end route with the session id and returns the result', async () => {
+    const urls: string[] = [];
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify({ ok: true, status: 'ending' }), {
+        status: 202,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await makeSessions().end('sess/1');
+
+    expect(urls).toEqual(['https://api.test/v1/calls/sess%2F1/end']);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'POST' });
+    expect(result).toEqual({ ok: true, status: 'ending' });
+  });
+});
+
 describe('sessions.stream', () => {
   it('yields status, transcript, and event frames, ending on session_ended', async () => {
     stubFetch([
