@@ -32,7 +32,7 @@ Sign up at [platform.speko.dev](https://platform.speko.dev), mint a key at [plat
 ## Agent resources
 
 - Machine-readable docs index: <https://docs.speko.dev/llms.txt> (full corpus: <https://docs.speko.dev/llms-full.txt>)
-- Hosted MCP server: `https://mcp.speko.ai/mcp` (OAuth or API key). One-command setup for Claude Code, Codex, OpenCode, and Cursor: `npx @spekoai/mcp@latest init`
+- Hosted MCP server: `https://mcp.speko.ai/mcp` (Platform API key). One-command setup for Claude Code, Codex, OpenCode, and Cursor: `npx @spekoai/mcp@latest init`
 - Full documentation: <https://docs.speko.dev>
 - README in this repo covers tool calling and client options in more depth.
 
