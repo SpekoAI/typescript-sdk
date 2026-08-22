@@ -100,7 +100,8 @@ export class PhoneNumbers {
   }
 
   /**
-   * Submit business verification for review. `attestationAccepted` must be `true`.
+   * Submit a business declaration for asynchronous review. A current minimal
+   * declaration enables purchasing immediately; the legacy full profile remains accepted.
    */
   submitKyb(params: PhoneNumberKybSubmitParams): Promise<PhoneNumberKybSubmission> {
     return this.http.post<PhoneNumberKybSubmission>('/v1/phone-numbers/kyb/submit', params);

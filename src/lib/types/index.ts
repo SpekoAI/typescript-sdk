@@ -723,7 +723,13 @@ export interface PhoneNumberRow {
   setupStatus: PhoneNumberSetupStatus;
   nextChargeAt: string;
   lastChargedAt: string | null;
+  /** Effective billing-or-compliance suspension timestamp. */
   suspendedAt: string | null;
+  /** Billing-only suspension, retained independently from compliance review. */
+  billingSuspendedAt?: string | null;
+  /** Compliance-only suspension for Speko-managed numbers. */
+  complianceSuspendedAt?: string | null;
+  suspensionReason?: 'billing' | 'compliance' | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -836,17 +842,46 @@ export interface PhoneNumberKybAuthorizedRepresentative {
   phone?: string;
 }
 
+export interface PhoneNumberKybDeclaration {
+  businessName: string;
+  useCase: string;
+}
+
+export type PhoneNumberKybAttestor =
+  | {
+      kind: 'user';
+      userId: string;
+      name: string;
+      email: string;
+      organizationRole: string | null;
+    }
+  | { kind: 'api_key'; apiKeyId: string };
+
+export interface PhoneNumberKybAttestationContract {
+  version: string;
+  text: string;
+  termsVersion: string;
+  termsUrl: string;
+}
+
 export interface PhoneNumberKybDraftParams {
   businessProfile: PhoneNumberKybBusinessProfile;
   authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative;
   attestationAccepted?: boolean;
 }
 
-export interface PhoneNumberKybSubmitParams {
-  businessProfile: PhoneNumberKybBusinessProfile;
-  authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative;
-  attestationAccepted: true;
-}
+export type PhoneNumberKybSubmitParams =
+  | {
+      declaration: PhoneNumberKybDeclaration;
+      attestationAccepted: true;
+      attestationVersion: string;
+    }
+  | {
+      businessProfile: PhoneNumberKybBusinessProfile;
+      authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative;
+      attestationAccepted: true;
+      attestationVersion?: string;
+    };
 
 export interface PhoneNumberKybSubmission {
   id: string;
@@ -854,8 +889,15 @@ export interface PhoneNumberKybSubmission {
   status: PhoneNumberKybSubmissionStatus;
   businessProfile: PhoneNumberKybBusinessProfile | null;
   authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative | null;
+  declaration?: PhoneNumberKybDeclaration | null;
+  attestor?: PhoneNumberKybAttestor | null;
   attestationAccepted: boolean;
+  attestationVersion?: string | null;
+  attestationText?: string | null;
+  termsVersion?: string | null;
   attestedAt: string | null;
+  accessHoldAt?: string | null;
+  accessHoldReason?: 'rejected' | 'revoked' | null;
   submittedByUserId: string | null;
   submittedByEmail: string | null;
   submittedByApiKeyId: string | null;
@@ -874,6 +916,10 @@ export interface PhoneNumberKybSubmission {
 export interface PhoneNumberKybOverview {
   status: PhoneNumberKybStatus;
   submission: PhoneNumberKybSubmission | null;
+  declarationPrefill?: PhoneNumberKybDeclaration;
+  requiredAttestation?: PhoneNumberKybAttestationContract;
+  attestationRequired?: boolean;
+  complianceAccess?: 'enabled' | 'awaiting_attestation' | 'suspended';
   prefill: {
     businessProfile: PhoneNumberKybBusinessProfile;
     authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative;
