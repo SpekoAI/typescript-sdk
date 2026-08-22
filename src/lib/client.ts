@@ -71,7 +71,9 @@ export class Speko {
 
   constructor(options: SpekoClientOptions) {
     if (!options.apiKey) {
-      throw new Error('Speko: apiKey is required. Get one at https://platform.speko.dev/api-keys');
+      throw new Error(
+        'Speko: apiKey is required. Get one at https://platform.speko.dev/agents/keys',
+      );
     }
     if (options.brokerId !== undefined && !BROKER_ID_PATTERN.test(options.brokerId)) {
       throw new Error(

@@ -27,7 +27,7 @@ Streaming variants exist for all three: `transcribeStream`, `synthesizeStream`, 
 
 ## Auth
 
-Sign up at [platform.speko.dev](https://platform.speko.dev), mint a key at [platform.speko.dev/api-keys](https://platform.speko.dev/api-keys), and set `SPEKO_API_KEY`. New accounts get starter credit with no card required.
+Sign up at [platform.speko.dev](https://platform.speko.dev), mint a key at [platform.speko.dev/agents/keys](https://platform.speko.dev/agents/keys), and set `SPEKO_API_KEY`. New accounts get starter credit with no card required.
 
 ## Agent resources
 
