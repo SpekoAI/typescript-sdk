@@ -584,6 +584,12 @@ export interface VoiceDialParams {
     turnDetection?: boolean | 'stt';
     contextThreshold?: boolean;
     greetFirst?: boolean;
+    /**
+     * Replaces the built-in prompt the answering-machine detector's classifier
+     * sees when deciding whether a human, an IVR menu or voicemail answered.
+     * Outbound only; max 2,000 characters.
+     */
+    amdPrompt?: string;
   };
   /** Optional per-call SIP routing hints. Carrier AMD requires trunk/provider support. */
   telephony?: {
