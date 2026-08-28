@@ -585,7 +585,7 @@ export interface VoiceDialParams {
   toolSecrets?: Record<string, string>;
   llm?: { temperature?: number; maxTokens?: number };
   ttsOptions?: { sampleRate?: number; speed?: number };
-  sttOptions?: { keywords?: string[]; language?: string };
+  sttOptions?: { keywords?: string[]; prompt?: string; language?: string };
   /** Server-side wall-clock cap in seconds. Values are clamped server-side to 30s-4h. */
   maxDurationSeconds?: number;
   /**
@@ -984,6 +984,12 @@ export interface AgentStackPreferences {
 export interface AgentSttOptions {
   /** Vocabulary keywords forwarded to whichever STT provider the router picks. */
   keywords?: string[];
+  /**
+   * Free-text transcription context (domain, names, expected phrases), max
+   * 2000 chars. Honored only by prompt-capable STT models (OpenAI
+   * gpt-4o-transcribe family, AssemblyAI Universal-3 Pro tiers).
+   */
+  prompt?: string;
   /**
    * STT stream-language override. A BCP-47-ish tag ('en', 'es-MX'), a
    * provider keyword like Deepgram's 'multi', or 'auto' to let the provider
