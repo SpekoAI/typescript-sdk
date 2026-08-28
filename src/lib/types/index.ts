@@ -562,6 +562,25 @@ export interface VoiceDialParams {
    * ```
    */
   variables?: Record<string, string>;
+  /**
+   * Per-call values for TOOLS ONLY — e.g. a short-lived access token scoped to
+   * the person being called, or a per-tenant API base URL. Unlike `variables`
+   * these never enter the system prompt, the transcript, or the model's
+   * context; they are stored encrypted and released only to tool execution.
+   * Custom-code tools read `session.secrets.<name>`; webhook tools may
+   * reference `{{name}}` in their `url` and `headers`. Names must be
+   * identifiers (`[A-Za-z_][A-Za-z0-9_]*`); up to 32 entries, 6 chars–4 KB each.
+   *
+   * @example
+   * ```ts
+   * await speko.voice.dial({
+   *   to: '+12015551234',
+   *   agentId: 'ag_123',
+   *   toolSecrets: { base_url: 'https://acme.example.com', access_token: token },
+   * });
+   * ```
+   */
+  toolSecrets?: Record<string, string>;
   llm?: { temperature?: number; maxTokens?: number };
   ttsOptions?: { sampleRate?: number; speed?: number };
   sttOptions?: { keywords?: string[]; language?: string };
