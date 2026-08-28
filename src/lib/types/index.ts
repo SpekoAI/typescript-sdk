@@ -430,7 +430,7 @@ export type CompleteStreamEvent =
 
 // --- Realtime (S2S) ---------------------------------------------------------
 
-export type RealtimeProvider = 'openai' | 'google' | 'xai' | 'inworld' | 'alibaba' | 'speko-lab';
+export type RealtimeProvider = 'openai' | 'google' | 'xai';
 
 export interface RealtimeToolSpec {
   name: string;
@@ -454,6 +454,8 @@ export interface RealtimeConnectParams {
   metadata?: Record<string, unknown>;
   /** Max session duration in seconds. Server-capped at 1800 (30 min). */
   ttlSeconds?: number;
+  /** Reuse when retrying an ambiguous bootstrap timeout. Generated when omitted. */
+  idempotencyKey?: string;
 }
 
 /**

@@ -30,6 +30,7 @@ export class HttpClient {
     path: string,
     body?: unknown,
     externalSignal?: AbortSignal,
+    extraHeaders?: Record<string, string>,
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const { signal, cleanup } = this.buildSignal(externalSignal);
@@ -37,7 +38,7 @@ export class HttpClient {
     try {
       const response = await fetch(url, {
         method,
-        headers: this.jsonHeaders,
+        headers: { ...this.jsonHeaders, ...extraHeaders },
         body: body ? JSON.stringify(body) : undefined,
         signal,
       });
@@ -57,8 +58,13 @@ export class HttpClient {
     return this.request<T>('GET', path, undefined, externalSignal);
   }
 
-  async post<T>(path: string, body: unknown, externalSignal?: AbortSignal): Promise<T> {
-    return this.request<T>('POST', path, body, externalSignal);
+  async post<T>(
+    path: string,
+    body: unknown,
+    externalSignal?: AbortSignal,
+    extraHeaders?: Record<string, string>,
+  ): Promise<T> {
+    return this.request<T>('POST', path, body, externalSignal, extraHeaders);
   }
 
   async put<T>(path: string, body: unknown, externalSignal?: AbortSignal): Promise<T> {
@@ -97,7 +103,7 @@ export class HttpClient {
       const response = await fetch(url, {
         method,
         headers,
-        body: bodyBytes,
+        body: bodyBytes as unknown as string,
         signal,
       });
 
@@ -225,7 +231,7 @@ export class HttpClient {
         'User-Agent': USER_AGENT,
         ...extraHeaders,
       },
-      body: bodyBytes,
+      body: bodyBytes as unknown as string,
       signal,
     });
 
