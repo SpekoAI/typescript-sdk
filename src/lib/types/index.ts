@@ -595,6 +595,8 @@ export interface VoiceDialParams {
    * AMD verdict.
    */
   turnHandling?: {
+    /** Local VAD for cascaded calls. Omit to use Silero. */
+    vad?: { provider: 'silero' | 'ai-coustics' };
     profile?: 'conversational' | 'ivr' | 'ivr_patient';
     endpointing?: { minDelay?: number; maxDelay?: number };
     interruption?: {
@@ -1366,6 +1368,26 @@ export interface AgentPromptVariable {
   description?: string;
 }
 
+/** Turn-taking configuration for cascaded agents. Realtime agents ignore VAD. */
+export interface AgentTurnHandling {
+  /** Local VAD provider. Omit to use Silero. */
+  vad?: { provider: 'silero' | 'ai-coustics' };
+  profile?: 'conversational' | 'ivr' | 'ivr_patient';
+  endpointing?: { minDelay?: number; maxDelay?: number };
+  interruption?: {
+    mode?: 'adaptive' | 'vad';
+    minDuration?: number;
+    minWords?: number;
+  };
+  turnDetection?: boolean | 'stt';
+  contextThreshold?: boolean;
+  textGate?: boolean;
+  turnDetector?: 'smart_turn' | 'speko_turn_v1';
+  dtmfToolDescription?: string;
+  amdPrompt?: string;
+  waitForCallee?: boolean;
+}
+
 export interface AgentRow {
   id: string;
   organizationId: string;
@@ -1378,6 +1400,7 @@ export interface AgentRow {
   sttOptions: AgentSttOptions | null;
   backgroundAudio: AgentBackgroundAudio | null;
   speechNormalization: AgentSpeechNormalization | null;
+  turnHandling: AgentTurnHandling | null;
   /** @deprecated Use organization-owned `speko.webhooks` endpoints. */
   webhooks: AgentWebhooksSerialized | null;
   /** Prompt-variable registry. Returned on single-agent reads; null = empty. */
@@ -1396,13 +1419,16 @@ export interface AgentCreateParams {
   sttOptions?: AgentSttOptions;
   backgroundAudio?: AgentBackgroundAudio;
   speechNormalization?: AgentSpeechNormalization;
+  turnHandling?: AgentTurnHandling;
   /** @deprecated Use `speko.webhooks.create()` after creating the agent. */
   webhooks?: AgentWebhooksCreate;
   /** Declare the prompt's `{{variables}}` with per-agent defaults/descriptions. */
   promptVariables?: AgentPromptVariable[];
 }
 
-export type AgentUpdateParams = Partial<Omit<AgentCreateParams, 'webhooks'>> & {
+export type AgentUpdateParams = Partial<Omit<AgentCreateParams, 'webhooks' | 'turnHandling'>> & {
+  /** Set to null to clear all stored turn-taking overrides. */
+  turnHandling?: AgentTurnHandling | null;
   /** @deprecated Use `speko.webhooks.update()` for organization-owned endpoints. */
   webhooks?: AgentWebhooksUpdate | null;
 };
