@@ -167,7 +167,7 @@ export class HttpClient {
      * mid-stream.
      */
     timeoutMs?: number,
-  ): AsyncIterableIterator<{ event: string; data: unknown }> {
+  ): AsyncIterableIterator<{ event: string; id?: string; data: unknown }> {
     const url = `${this.baseUrl}${path}`;
     const { signal, cleanup } = this.buildSignal(externalSignal, timeoutMs);
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
@@ -220,7 +220,7 @@ export class HttpClient {
     bodyBytes: Uint8Array,
     extraHeaders: Record<string, string>,
     externalSignal?: AbortSignal,
-  ): Promise<AsyncIterableIterator<{ event: string; data: unknown }>> {
+  ): Promise<AsyncIterableIterator<{ event: string; id?: string; data: unknown }>> {
     const url = `${this.baseUrl}${path}`;
     const { signal, cleanup } = this.buildSignal(externalSignal);
 
@@ -289,7 +289,7 @@ export class HttpClient {
   private async *readSseBody(
     body: ReadableStream<Uint8Array>,
     cleanup: () => void,
-  ): AsyncIterableIterator<{ event: string; data: unknown }> {
+  ): AsyncIterableIterator<{ event: string; id?: string; data: unknown }> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -347,7 +347,9 @@ export class HttpClient {
     cleanup: () => void;
   } {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs ?? this.timeout);
+    const effectiveTimeout = timeoutMs ?? this.timeout;
+    const timer =
+      effectiveTimeout > 0 ? setTimeout(() => controller.abort(), effectiveTimeout) : null;
 
     if (externalSignal) {
       if (externalSignal.aborted) {
@@ -358,7 +360,7 @@ export class HttpClient {
         return {
           signal: controller.signal,
           cleanup: () => {
-            clearTimeout(timer);
+            if (timer) clearTimeout(timer);
             externalSignal.removeEventListener('abort', onAbort);
           },
         };
@@ -367,7 +369,9 @@ export class HttpClient {
 
     return {
       signal: controller.signal,
-      cleanup: () => clearTimeout(timer),
+      cleanup: () => {
+        if (timer) clearTimeout(timer);
+      },
     };
   }
 
@@ -399,10 +403,10 @@ export class HttpClient {
 }
 
 function drainSseEvents(buffer: string): {
-  items: Array<{ event: string; data: unknown }>;
+  items: Array<{ event: string; id?: string; data: unknown }>;
   remainder: string;
 } {
-  const items: Array<{ event: string; data: unknown }> = [];
+  const items: Array<{ event: string; id?: string; data: unknown }> = [];
   let cursor = 0;
 
   while (true) {
@@ -413,10 +417,13 @@ function drainSseEvents(buffer: string): {
     if (!block.trim()) continue;
 
     let event = 'message';
+    let id: string | undefined;
     const dataLines: string[] = [];
     for (const line of block.split(/\r?\n/)) {
       if (line.startsWith('event:')) {
         event = line.slice('event:'.length).trim();
+      } else if (line.startsWith('id:')) {
+        id = line.slice('id:'.length).trim();
       } else if (line.startsWith('data:')) {
         dataLines.push(line.slice('data:'.length).trimStart());
       }
@@ -428,7 +435,7 @@ function drainSseEvents(buffer: string): {
     } catch {
       // Keep non-JSON SSE payloads as strings.
     }
-    items.push({ event, data });
+    items.push({ event, ...(id ? { id } : {}), data });
   }
 
   return { items, remainder: buffer.slice(cursor) };

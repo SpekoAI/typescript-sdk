@@ -8,6 +8,7 @@ import { KnowledgeBases } from './resources/knowledge-bases.js';
 import { PhoneNumbers } from './resources/phone-numbers.js';
 import { Realtime } from './resources/realtime.js';
 import { Sessions } from './resources/sessions.js';
+import { Sms } from './resources/sms.js';
 import { Synthesize } from './resources/synthesize.js';
 import { Transcribe } from './resources/transcribe.js';
 import { Usage } from './resources/usage.js';
@@ -64,6 +65,7 @@ export class Speko {
   readonly callbacks: Callbacks;
   readonly sessions: Sessions;
   readonly webhooks: Webhooks;
+  readonly sms: Sms;
 
   private readonly transcribeResource: Transcribe;
   private readonly synthesizeResource: Synthesize;
@@ -100,6 +102,7 @@ export class Speko {
     this.callbacks = new Callbacks(http);
     this.sessions = new Sessions(http);
     this.webhooks = new Webhooks(http);
+    this.sms = new Sms(http);
     this.transcribeResource = new Transcribe(http);
     this.synthesizeResource = new Synthesize(http);
     this.completeResource = new Complete(http);

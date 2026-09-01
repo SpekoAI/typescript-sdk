@@ -736,6 +736,11 @@ export interface PhoneNumberRow {
   smsCampaignId: string | null;
   smsAssignmentStatus: PhoneNumberSmsAssignmentStatus | null;
   smsAssignmentUpdatedAt: string | null;
+  telnyxMessagingProfileId: string | null;
+  smsMessagingProfileStatus: 'pending' | 'ready' | 'failed';
+  smsMessagingProfileUpdatedAt: string | null;
+  smsMessagingProfileError: string | null;
+  smsAutomationEnabled: boolean;
   /**
    * 1:1 link to a persisted agent. When set, inbound calls hydrate
    * pipeline config from the agent row instead of (or alongside) the
@@ -810,6 +815,8 @@ export interface PhoneNumberUpdateParams {
    * request is a validation error. Requires the human-calling feature.
    */
   routeToBrokerId?: string | null;
+  /** Owner/admin-only opt-in for inbound SMS agent replies on this number. */
+  smsAutomationEnabled?: boolean;
 }
 
 export interface AvailablePhoneNumber {
@@ -1214,7 +1221,15 @@ export type WorkspaceWebhookEventType =
   | 'call.transfer.completed'
   | 'call.transfer.failed'
   | 'call.leg.hangup'
-  | 'call.hangup';
+  | 'call.hangup'
+  | 'sms.received'
+  | 'sms.accepted'
+  | 'sms.sent'
+  | 'sms.delivered'
+  | 'sms.delivery_failed'
+  | 'sms.submission_unknown'
+  | 'sms.opted_out'
+  | 'sms.opted_in';
 
 export type WebhookEventType =
   | WorkspaceWebhookEventType
@@ -1259,6 +1274,8 @@ export interface WebhookEndpointInput {
   /** Write-only. Required when signingSecretSource is custom. */
   signingSecret?: string;
   extractionFields?: AgentExtractionField[];
+  /** Include message text, or emit metadata-only SMS payloads. Defaults to full. */
+  contentMode?: 'full' | 'metadata_only';
 }
 
 export type WebhookEndpointUpdate = Partial<Omit<WebhookEndpointInput, 'authHeaders'>> & {
@@ -1279,6 +1296,7 @@ export interface WebhookEndpoint {
   signingSecretSource: 'workspace' | 'custom';
   hasCustomSigningSecret: boolean;
   extractionFields: AgentExtractionField[];
+  contentMode: 'full' | 'metadata_only';
   legacyManaged: boolean;
   createdAt: string;
   updatedAt: string;
@@ -2007,4 +2025,285 @@ export interface CallControlListParams {
   brokerId?: string;
   /** Newest first. Server-side default and cap apply. */
   limit?: number;
+}
+
+// --- SMS messaging ---------------------------------------------------------
+
+export type SmsMessageStatus =
+  | 'queued'
+  | 'scheduled'
+  | 'submitting'
+  | 'accepted'
+  | 'sent'
+  | 'delivered'
+  | 'delivery_failed'
+  | 'rejected'
+  | 'submission_unknown'
+  | 'canceled'
+  | 'received';
+export type SmsMessageDirection = 'inbound' | 'outbound';
+export type SmsMessageOrigin = 'api' | 'dashboard' | 'agent_tool' | 'agent_auto_reply' | 'telnyx';
+
+export interface SmsSegmentEstimate {
+  readonly encoding: 'gsm7' | 'ucs2';
+  readonly segments: number;
+  readonly units: number;
+  readonly per_segment: number;
+}
+
+export interface SmsMessage {
+  readonly id: string;
+  readonly conversation_id: string;
+  readonly batch_id: string | null;
+  readonly from_phone_number_id: string;
+  readonly direction: SmsMessageDirection;
+  readonly origin: SmsMessageOrigin;
+  readonly from: string;
+  readonly to: string;
+  readonly text: string | null;
+  readonly campaign_id: string | null;
+  readonly brand_id: string | null;
+  readonly campaign_snapshot: Record<string, unknown> | null;
+  readonly consent_id: string | null;
+  readonly consent_basis: string | null;
+  readonly recipient_timezone: string | null;
+  readonly requested_send_at: string | null;
+  readonly effective_send_at: string | null;
+  readonly terminal_at: string | null;
+  readonly status: SmsMessageStatus;
+  readonly provider_status: string | null;
+  readonly encoding: 'gsm7' | 'ucs2' | null;
+  readonly estimated_segments: number;
+  readonly segment_count: number;
+  readonly estimated: SmsSegmentEstimate;
+  readonly charged_micro_usd: string;
+  readonly provider_cost_micro_usd: string | null;
+  readonly metadata: Record<string, unknown>;
+  readonly error: { readonly code: string; readonly detail: string | null } | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface SmsPage<T> {
+  readonly data: T[];
+  readonly next_cursor: string | null;
+}
+
+export interface SmsSendParams {
+  readonly from_phone_number_id: string;
+  readonly to: string;
+  readonly text: string;
+  readonly idempotencyKey: string;
+  readonly send_at?: string;
+  readonly consent_id?: string | null;
+  readonly recipient_timezone?: string | null;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface SmsMessageListParams {
+  readonly conversation_id?: string;
+  readonly batch_id?: string;
+  readonly from_phone_number_id?: string;
+  readonly recipient?: string;
+  readonly campaign_id?: string;
+  readonly status?: SmsMessageStatus;
+  readonly direction?: SmsMessageDirection;
+  readonly origin?: SmsMessageOrigin;
+  readonly created_after?: string;
+  readonly created_before?: string;
+  readonly cursor?: string;
+  readonly limit?: number;
+}
+
+export interface SmsBatchRecipient {
+  readonly to: string;
+  readonly text: string;
+  readonly consent_id?: string | null;
+  readonly recipient_timezone?: string | null;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface SmsBatchCreateParams {
+  readonly from_phone_number_id: string;
+  readonly recipients: readonly SmsBatchRecipient[];
+  readonly idempotencyKey: string;
+  readonly send_at?: string;
+}
+
+export interface SmsBatch {
+  readonly id: string;
+  readonly from_phone_number_id: string;
+  readonly status:
+    | 'queued'
+    | 'scheduled'
+    | 'processing'
+    | 'completed'
+    | 'partially_failed'
+    | 'failed'
+    | 'canceled';
+  readonly requested_send_at: string | null;
+  readonly total_count: number;
+  readonly accepted_count: number;
+  readonly rejected_count: number;
+  readonly delivered_count: number;
+  readonly failed_count: number;
+  readonly canceled_at: string | null;
+  readonly completed_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface SmsConversation {
+  readonly id: string;
+  readonly phone_number_id: string;
+  readonly remote_phone_number: string;
+  readonly campaign_id: string | null;
+  readonly campaign_snapshot: Record<string, unknown> | null;
+  readonly status: 'open' | 'closed' | 'spam';
+  readonly automation_status: 'disabled' | 'enabled' | 'paused';
+  readonly assigned_user_id: string | null;
+  readonly assigned_agent_id: string | null;
+  readonly unread_count: number;
+  readonly recipient_timezone: string | null;
+  readonly last_inbound_at: string | null;
+  readonly last_outbound_at: string | null;
+  readonly last_message_at: string;
+  readonly content_redacted_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface SmsConversationListParams {
+  readonly status?: SmsConversation['status'];
+  readonly phone_number_id?: string;
+  readonly assigned_user_id?: string;
+  readonly assigned_agent_id?: string;
+  readonly recipient?: string;
+  readonly unread?: boolean;
+  readonly cursor?: string;
+  readonly limit?: number;
+}
+
+export interface SmsConversationUpdate {
+  readonly status?: SmsConversation['status'];
+  readonly assigned_user_id?: string | null;
+  readonly assigned_agent_id?: string | null;
+  readonly automation_status?: SmsConversation['automation_status'];
+  readonly recipient_timezone?: string | null;
+}
+
+export interface SmsConversationSendParams {
+  readonly text: string;
+  readonly idempotencyKey: string;
+  readonly send_at?: string;
+  readonly consent_id?: string | null;
+  readonly recipient_timezone?: string | null;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export type SmsConsentSource =
+  | 'inbound'
+  | 'api'
+  | 'keyword'
+  | 'webform'
+  | 'paper'
+  | 'verbal'
+  | 'import';
+
+export interface SmsConsentInput {
+  readonly recipient: string;
+  readonly campaign_id: string;
+  readonly source: SmsConsentSource;
+  readonly proof_reference?: string | null;
+  readonly proof?: string | null;
+  readonly timezone?: string | null;
+  readonly captured_at?: string;
+  readonly expires_at?: string | null;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface SmsConsent {
+  readonly id: string;
+  readonly recipient: string;
+  readonly campaign_id: string;
+  readonly status: 'active' | 'expired' | 'revoked';
+  readonly source: SmsConsentSource;
+  readonly proof_reference: string | null;
+  readonly proof_hash: string | null;
+  readonly timezone: string | null;
+  readonly captured_at: string;
+  readonly expires_at: string | null;
+  readonly revoked_at: string | null;
+  readonly revoked_reason: string | null;
+  readonly metadata: Record<string, unknown>;
+  readonly created_at: string;
+}
+
+export interface SmsConsentListParams {
+  readonly recipient?: string;
+  readonly campaign_id?: string;
+  readonly status?: SmsConsent['status'];
+  readonly limit?: number;
+}
+
+export interface SmsSuppression {
+  readonly id: string;
+  readonly recipient: string;
+  readonly status: 'suppressed' | 'lifted';
+  readonly keyword: string | null;
+  readonly source_phone_number_id: string | null;
+  readonly source_message_provider_id: string | null;
+  readonly suppressed_at: string;
+  readonly lifted_at: string | null;
+  readonly updated_at: string;
+}
+
+export interface SmsSettings {
+  readonly messaging_profile_id: string | null;
+  readonly messaging_profile_status: string;
+  readonly webhook_config_version: number;
+  readonly opt_out_config_version: number;
+  readonly help_message: string;
+  readonly opt_out_message: string;
+  readonly opt_in_message: string;
+  readonly retention_days: number;
+  readonly quiet_hours_start: string;
+  readonly quiet_hours_end: string;
+  readonly default_timezone: string | null;
+  readonly default_automation_enabled: boolean;
+  readonly last_synced_at: string | null;
+  readonly last_error: string | null;
+  readonly updated_at: string;
+}
+
+export type SmsSettingsUpdate = Partial<
+  Pick<
+    SmsSettings,
+    | 'help_message'
+    | 'opt_out_message'
+    | 'opt_in_message'
+    | 'retention_days'
+    | 'quiet_hours_start'
+    | 'quiet_hours_end'
+    | 'default_timezone'
+    | 'default_automation_enabled'
+  >
+>;
+
+export interface SmsConversationNote {
+  readonly id: string;
+  readonly conversation_id: string;
+  readonly body: string | null;
+  readonly created_by_user_id: string;
+  readonly redacted_at: string | null;
+  readonly created_at: string;
+}
+
+export interface SmsStreamEvent {
+  readonly event: string;
+  readonly id?: string;
+  readonly message_id: string;
+  readonly conversation_id: string;
+  readonly status: SmsMessageStatus;
+  readonly occurred_at: string;
 }
