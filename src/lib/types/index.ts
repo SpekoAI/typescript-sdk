@@ -1421,6 +1421,12 @@ export interface AgentRow {
   turnHandling: AgentTurnHandling | null;
   /** @deprecated Use organization-owned `speko.webhooks` endpoints. */
   webhooks: AgentWebhooksSerialized | null;
+  /**
+   * Post-call extraction schema on the agent itself — no webhook required.
+   * Merged with `webhooks.postCall.extractionFields`; the agent-level
+   * definition wins on a name collision.
+   */
+  extractionFields: AgentExtractionField[];
   /** Prompt-variable registry. Returned on single-agent reads; null = empty. */
   promptVariables?: AgentPromptVariable[] | null;
   createdAt: string;
@@ -1440,6 +1446,12 @@ export interface AgentCreateParams {
   turnHandling?: AgentTurnHandling;
   /** @deprecated Use `speko.webhooks.create()` after creating the agent. */
   webhooks?: AgentWebhooksCreate;
+  /**
+   * Post-call extraction schema on the agent itself — no webhook required.
+   * Merged with `webhooks.postCall.extractionFields`; the agent-level
+   * definition wins on a name collision.
+   */
+  extractionFields?: AgentExtractionField[];
   /** Declare the prompt's `{{variables}}` with per-agent defaults/descriptions. */
   promptVariables?: AgentPromptVariable[];
 }
@@ -1449,6 +1461,13 @@ export type AgentUpdateParams = Partial<Omit<AgentCreateParams, 'webhooks' | 'tu
   turnHandling?: AgentTurnHandling | null;
   /** @deprecated Use `speko.webhooks.update()` for organization-owned endpoints. */
   webhooks?: AgentWebhooksUpdate | null;
+  /**
+   * Post-call extraction schema on the agent itself — no webhook required.
+   * Merged with `webhooks.postCall.extractionFields`; the agent-level
+   * definition wins on a name collision.
+   */
+  /** `null` clears the schema. */
+  extractionFields?: AgentExtractionField[] | null;
 };
 
 // ─── Calls ───────────────────────────────────────────────────────────
@@ -1494,6 +1513,11 @@ export interface CallReport {
   summary: string;
   outcome: string;
   structured_data: Record<string, unknown>;
+  /**
+   * Caller-defined extraction values, keyed by field name — the same object the
+   * `call.report` webhook delivers. `{}` when the agent declares no fields.
+   */
+  custom_data: Record<string, unknown>;
   transcript: { entries: CallTranscriptEntry[] };
   cost_micro_usd: string;
   cost_breakdown: CallCostLine[];
