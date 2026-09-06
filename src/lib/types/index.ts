@@ -621,7 +621,7 @@ export interface VoiceDialParams {
      * a message. Does not apply to menus/screeners or enable disabled/carrier AMD.
      */
     onMachine?: 'hangup' | 'leave_message' | 'agent_decides';
-    /** Spoken once into the mailbox under `onMachine: 'leave_message'`. Max 2,000 characters. */
+    /** Spoken once into the mailbox under `onMachine: 'leave_message'`. Renders the same `{{variables}}` as `firstMessage`. Max 2,000 characters. */
     voicemailMessage?: string;
   };
   /** Optional per-call SIP routing hints. Carrier AMD requires trunk/provider support. */
