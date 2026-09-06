@@ -613,6 +613,16 @@ export interface VoiceDialParams {
      * Outbound only; max 2,000 characters.
      */
     amdPrompt?: string;
+    /**
+     * What happens when native detection identifies recordable voicemail. `hangup` ends the call at the verdict; `leave_message` waits
+     * for the greeting to finish, speaks `voicemailMessage` once, then hangs
+     * up; `agent_decides` (default) hands the verdict to the LLM and lets the
+     * prompt's own voicemail rules act. Unavailable mailboxes always end without
+     * a message. Does not apply to menus/screeners or enable disabled/carrier AMD.
+     */
+    onMachine?: 'hangup' | 'leave_message' | 'agent_decides';
+    /** Spoken once into the mailbox under `onMachine: 'leave_message'`. Max 2,000 characters. */
+    voicemailMessage?: string;
   };
   /** Optional per-call SIP routing hints. Carrier AMD requires trunk/provider support. */
   telephony?: {
@@ -1404,6 +1414,8 @@ export interface AgentTurnHandling {
   dtmfToolDescription?: string;
   amdPrompt?: string;
   waitForCallee?: boolean;
+  onMachine?: 'hangup' | 'leave_message' | 'agent_decides';
+  voicemailMessage?: string;
 }
 
 export interface AgentRow {
