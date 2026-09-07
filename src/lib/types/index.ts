@@ -1822,6 +1822,46 @@ export interface AgentToolSourceInline {
 }
 
 /**
+ * HTTP verb for a webhook tool. Omitting it means `POST`, so a tool
+ * written before this field existed is unchanged.
+ *
+ * `GET` and `DELETE` send NO request body — not a `body` template and not
+ * the default envelope either. Pairing one with `body` is rejected with
+ * `422 WEBHOOK_TEMPLATE_INVALID` rather than silently dropping the body.
+ */
+export type AgentToolWebhookMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'GET';
+
+/**
+ * JSON body template for a webhook tool.
+ *
+ * Omit it and Speko sends its fixed envelope —
+ * `{tool, args, idempotency_key, session_id, tool_call_id}` — unchanged.
+ * Supply one and it REPLACES that envelope, so a tool can post the shape
+ * a third-party API actually wants.
+ *
+ * Every string leaf interpolates `{{name}}`: any session `variables` or
+ * `toolSecrets` entry, plus these reserved names —
+ *
+ * | Name                  | Substitutes                                          |
+ * | --------------------- | ---------------------------------------------------- |
+ * | `{{tool_name}}`       | the tool's name                                      |
+ * | `{{session_id}}`      | the session id                                       |
+ * | `{{tool_call_id}}`    | the model's tool-call id                             |
+ * | `{{idempotency_key}}` | `<session_id>:<tool_call_id>`                        |
+ * | `{{args.<name>}}`     | one argument, JSON type preserved                    |
+ * | `{{args}}`            | the whole arguments object — whole values only        |
+ *
+ * Reserved names win over a session value of the same name. `{{args}}`
+ * must be the ENTIRE value of a key; embedding it in a longer string is
+ * rejected at write time instead of being JSON-stringified into it.
+ *
+ * Limits: 8 KB serialized, 8 levels of nesting, and no `__proto__`,
+ * `constructor` or `prototype` key. A URL whose ORIGIN is templated may
+ * not carry a body template at all — see the tool-calling guide.
+ */
+export type AgentToolWebhookBody = Record<string, unknown> | unknown[];
+
+/**
  * Webhook source as sent to {@link AgentTools.create}. The plaintext
  * `secret` is encrypted server-side; the returned row carries
  * `secretRef` instead.
@@ -1834,6 +1874,10 @@ export interface AgentToolSourceWebhookCreate {
   headers?: Record<string, string>;
   /** Secret-referenced outbound auth headers (e.g. a Bearer token your endpoint requires). */
   authHeaders?: AgentWebhookAuthHeaderInput[];
+  /** HTTP verb. Omit for `POST`. `GET`/`DELETE` send no body and reject `body`. */
+  method?: AgentToolWebhookMethod;
+  /** JSON body template replacing the default envelope. See {@link AgentToolWebhookBody}. */
+  body?: AgentToolWebhookBody;
   timeoutMs?: number;
 }
 
@@ -1849,6 +1893,10 @@ export interface AgentToolSourceWebhookSerialized {
   headers?: Record<string, string>;
   /** Outbound auth-header pointers; values stay encrypted server-side. */
   authHeaders?: AgentWebhookAuthHeader[];
+  /** Absent means `POST`. */
+  method?: AgentToolWebhookMethod;
+  /** The stored body template. Configuration, not a secret — returned as saved. */
+  body?: AgentToolWebhookBody;
   timeoutMs?: number;
 }
 
@@ -1885,6 +1933,10 @@ export interface AgentToolSourceWebhookUpdate {
   headers?: Record<string, string>;
   /** Secret-referenced outbound auth headers. Replaces the stored set; omit a `value` to keep it. */
   authHeaders?: AgentWebhookAuthHeaderInput[];
+  /** HTTP verb. Omit for `POST`. `GET`/`DELETE` send no body and reject `body`. */
+  method?: AgentToolWebhookMethod;
+  /** JSON body template replacing the default envelope. See {@link AgentToolWebhookBody}. */
+  body?: AgentToolWebhookBody;
   timeoutMs?: number;
 }
 
