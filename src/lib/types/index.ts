@@ -597,6 +597,12 @@ export interface VoiceDialParams {
   turnHandling?: {
     /** Local VAD for cascaded calls. Omit to use Silero. */
     vad?: { provider: 'silero' | 'ai-coustics' };
+    /**
+     * Caller-leg input enhancement (ai-coustics). Omit for the platform default;
+     * `enabled: false` turns it off; `model` is plain Quail (default) or Quail Voice
+     * Focus (primary-speaker isolation, explicit opt-in).
+     */
+    noiseCancellation?: { enabled: boolean; model?: 'quail' | 'quail-voice-focus' };
     profile?: 'conversational' | 'ivr' | 'ivr_patient';
     endpointing?: { minDelay?: number; maxDelay?: number };
     interruption?: {
@@ -1400,6 +1406,12 @@ export interface AgentPromptVariable {
 export interface AgentTurnHandling {
   /** Local VAD provider. Omit to use Silero. */
   vad?: { provider: 'silero' | 'ai-coustics' };
+  /**
+   * Caller-leg input enhancement (ai-coustics). Omit for the platform default;
+   * `enabled: false` turns it off; `model` is plain Quail (default) or Quail Voice
+   * Focus (primary-speaker isolation, explicit opt-in).
+   */
+  noiseCancellation?: { enabled: boolean; model?: 'quail' | 'quail-voice-focus' };
   profile?: 'conversational' | 'ivr' | 'ivr_patient';
   endpointing?: { minDelay?: number; maxDelay?: number };
   interruption?: {
