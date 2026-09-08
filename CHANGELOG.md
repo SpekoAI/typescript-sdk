@@ -1,3 +1,9 @@
+## 0.5.2
+
+### Fixes
+
+- Correct the SDK User-Agent version and verify it against package.json before publication.
+
 ## 0.4.2 (2026-06-05)
 
 ### 🚀 Features

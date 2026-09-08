@@ -29,6 +29,9 @@ jobs:
       - name: Build for publish
         run: npx tsc -p tsconfig.publish.json
 
+      - name: Verify built SDK version
+        run: node scripts/check-package-version.mjs
+
       - name: Publish with provenance
         run: npm publish --provenance --access public
 
