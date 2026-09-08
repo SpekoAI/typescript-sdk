@@ -1,0 +1,2409 @@
+import type {
+  CallDirection,
+  CallJoinCredentials,
+  CallResource,
+  CallStatus,
+} from '../voice-contract.js';
+
+/** Options for creating a Speko client. */
+export interface SpekoClientOptions {
+  /** API key for authentication. */
+  apiKey: string;
+  /** Org-defined broker identity used by human-calling methods. */
+  brokerId?: string;
+  /** Base URL of the Speko API. Defaults to https://api.speko.dev */
+  baseUrl?: string;
+  /** Alias for {@link SpekoClientOptions.baseUrl}. If both are set, `baseUrl` wins. */
+  baseURL?: string;
+  /** Request timeout in milliseconds. Defaults to 30000. */
+  timeout?: number;
+}
+
+/** BYOK = customer key, no Speko charge. MANAGED = platform key, billed. */
+export type KeySource = 'BYOK' | 'MANAGED';
+
+/** Usage record for a workspace. */
+export interface UsageSummary {
+  totalSessions: number;
+  totalMinutes: number;
+  totalCost: number;
+  breakdown: UsageByProvider[];
+  balanceUsd: number;
+  currency: 'USD';
+}
+
+export interface UsageByProvider {
+  provider: string;
+  type: 'stt' | 'llm' | 'tts';
+  metric: string;
+  keySource: KeySource;
+  quantity: number;
+  cost: number;
+}
+
+/** Parameters for querying usage. */
+export interface UsageQueryParams {
+  /** Start date (ISO 8601). */
+  from?: string;
+  /** End date (ISO 8601). */
+  to?: string;
+}
+
+/** Current prepaid credit balance. */
+export interface OrganizationBalance {
+  balanceUsd: number;
+  currency: 'USD';
+  updatedAt: string;
+}
+
+export type CreditLedgerKind = 'grant' | 'debit' | 'topup' | 'refund' | 'adjustment';
+
+export interface CreditLedgerEntry {
+  id: string;
+  kind: CreditLedgerKind;
+  /** Signed. Positive for grants/topups/refunds, negative for debits. */
+  amountMicroUsd: string;
+  metric: string | null;
+  provider: string | null;
+  sessionId: string | null;
+  createdAt: string;
+}
+
+export interface CreditLedgerPage {
+  entries: CreditLedgerEntry[];
+  /** Pass back as `cursor` for the next page, or null if exhausted. */
+  nextCursor: string | null;
+}
+
+export interface CreditLedgerQueryParams {
+  limit?: number;
+  cursor?: string;
+}
+
+// --- Routing primitives -----------------------------------------------------
+
+/** Optimization preset that biases the router's weighted score. */
+export type OptimizeFor = 'balanced' | 'accuracy' | 'latency' | 'cost';
+
+/** Routing intent passed to the proxy primitives. */
+export interface RoutingIntent {
+  /** BCP-47 language tag, e.g. "en" or "es-MX". */
+  language: string;
+  /**
+   * Region to rank streaming providers in (e.g. `"us-east4"`, `"eu-west1"`).
+   * Defaults to `"global"` on the server, which surfaces region-agnostic
+   * (batch) benchmark rows. Set this when latency to a specific
+   * geography matters — STT/TTS rankings differ per region.
+   */
+  region?: string;
+  optimizeFor?: OptimizeFor;
+}
+
+/**
+ * Optional constraints layered on top of `RoutingIntent`. The router still
+ * ranks candidates by benchmark score — but if `allowedProviders[modality]`
+ * is set and non-empty, it only considers that subset.
+ */
+export interface PipelineConstraints {
+  allowedProviders?: {
+    stt?: string[];
+    llm?: string[];
+    tts?: string[];
+  };
+}
+
+// --- Transcribe -------------------------------------------------------------
+
+export interface TranscribeOptions extends RoutingIntent {
+  /**
+   * Optional voice/session identifier forwarded as `x-session-id` for usage
+   * attribution. The value is carried out-of-band so request bodies and STT
+   * provider options stay provider-shaped.
+   */
+  sessionId?: string;
+  /** MIME type of the audio body. Defaults to "audio/wav". */
+  contentType?: string;
+  constraints?: PipelineConstraints;
+  /**
+   * Domain keywords to bias the STT toward. Forwarded to whichever provider
+   * the router picks: Deepgram → `keywords`, AssemblyAI → `keyterms_prompt`
+   * (or `word_boost` on legacy models), OpenAI Whisper → comma-joined prompt,
+   * ElevenLabs Scribe → `biased_keywords`. Casing matters for proper nouns.
+   */
+  keywords?: readonly string[];
+  /** Provider-facing STT overrides. Routing continues to use the inherited language. */
+  sttOptions?: { language?: string };
+}
+
+export interface TranscribeResult {
+  text: string;
+  provider: string;
+  model: string;
+  confidence: number | null;
+  failoverCount: number;
+  scoresRunId: string | null;
+}
+
+export type TranscribeStreamEvent =
+  | {
+      type: 'meta';
+      provider: string;
+      model: string;
+      failoverCount: number;
+      scoresRunId: string | null;
+    }
+  | {
+      type: 'transcript';
+      text: string;
+      isFinal: boolean;
+      confidence: number;
+    }
+  | (TranscribeResult & { type: 'done' })
+  | { type: 'error'; error: string; code: string };
+
+// --- Synthesize -------------------------------------------------------------
+
+export interface SynthesizeOptions extends RoutingIntent {
+  /**
+   * Optional voice/session identifier forwarded as `x-session-id` for usage
+   * attribution. The value is carried out-of-band so request bodies and TTS
+   * provider options stay provider-shaped.
+   */
+  sessionId?: string;
+  /** Optional voice override. Otherwise the SDK uses each provider's default. */
+  voice?: string;
+  /**
+   * Optional upstream model name to use for synthesis (e.g.
+   * `eleven_multilingual_v2`, `sonic-2`, `gpt-4o-mini-tts`,
+   * `qwen3-tts-flash`). When omitted, the router picks the best-ranked
+   * model for the chosen provider. When set, applies to the primary
+   * candidate only — failover candidates still use the selector's model
+   * so a model intended for provider A isn't sent to provider B.
+   */
+  model?: string;
+  speed?: number;
+  /**
+   * Free-text speaking-style instruction (tone, pace, emotion) forwarded to the
+   * TTS model. Only instruction-capable models honor it (OpenAI
+   * `gpt-4o-mini-tts`, Hume Octave, `qwen3-tts-instruct-flash`); the router
+   * drops it for any other resolved model, so it's safe to always pass.
+   */
+  instructions?: string;
+  /**
+   * Normalize the text into spoken form before TTS — strip markdown/URLs, spell
+   * out numbers/currency/abbreviations. A deterministic safety net beneath the
+   * voice directive. The voice pipeline sets this; direct TTS callers default
+   * off and get literal text.
+   */
+  spokenForm?: boolean;
+  constraints?: PipelineConstraints;
+}
+
+export interface SynthesizeResult {
+  /** Raw audio bytes. Format depends on the chosen provider — see `contentType`. */
+  audio: Uint8Array;
+  /** MIME type of the audio (e.g. "audio/mpeg" for ElevenLabs, "audio/pcm;rate=24000" for Cartesia). */
+  contentType: string;
+  provider: string;
+  model: string;
+  failoverCount: number;
+  scoresRunId: string | null;
+}
+
+export interface SynthesizeStreamResult extends AsyncIterable<Uint8Array> {
+  contentType: string;
+  provider: string;
+  model: string;
+  failoverCount: number;
+  scoresRunId: string | null;
+}
+
+// --- Voices (TTS catalog) ---------------------------------------------------
+
+export interface VoiceCatalogEntry {
+  /** Routing-key vendor (matches `allowedProviders.tts` entries). */
+  vendor: string;
+  /** Voice id passed through to the provider's TTS API. */
+  id: string;
+  /** Human-readable label. */
+  name: string;
+}
+
+export interface VoicesProviderEntry {
+  key: string;
+  name: string;
+  models: readonly string[];
+  /**
+   * `true` when the provider's voice library is account-scoped and must
+   * be fetched live from the provider (currently only ElevenLabs).
+   */
+  voicesFetchedLive: boolean;
+}
+
+export interface VoicesListResult {
+  voices: readonly VoiceCatalogEntry[];
+  providers: readonly VoicesProviderEntry[];
+}
+
+export interface VoicesListParams {
+  /**
+   * Filter to a single provider's voices. Accepts either the routing key
+   * (`cartesia`, `xai`, `alibaba`, `openai`, `inworld`, `elevenlabs`) or the
+   * catalog suffix form (`xai-tts`, `alibaba-tts`, `openai-tts`).
+   */
+  provider?: string;
+}
+
+// --- Complete (LLM) ---------------------------------------------------------
+
+/**
+ * One LLM-emitted tool invocation. `args` is a JSON-encoded string (LLMs may
+ * stream partial JSON; the proxy guarantees a complete, parseable string).
+ */
+export interface ChatToolCall {
+  id: string;
+  name: string;
+  args: string;
+}
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  /** Present on `role: 'assistant'` when the model invoked one or more tools. */
+  toolCalls?: ChatToolCall[];
+  /** Required on `role: 'tool'` — pairs with the `id` from a prior assistant `toolCalls[]`. */
+  toolCallId?: string;
+  /**
+   * Present on `role: 'tool'` when the customer's tool execute() threw or
+   * returned an error. The proxy translates to provider-native error signals
+   * (Anthropic `is_error: true`, OpenAI prefixed content) so the LLM sees the
+   * failure instead of treating the error message as a normal tool result.
+   */
+  isError?: boolean;
+}
+
+/**
+ * Where the tool runs. `inline` (default) preserves the v0.3 behavior —
+ * the SDK / customer worker executes the tool. `webhook` opts into
+ * Speko's server-side execution: the proxy POSTs a Standard-Webhooks-
+ * signed request to your URL, folds the result back into the next
+ * provider turn, and only returns to you when the model emits final
+ * text or hands back an inline tool call. `builtin` runs Speko-managed
+ * primitives (e.g. `search_knowledge_base`, `transfer_call`, `end_call`).
+ * `integration` runs an
+ * org-installed Speko app action such as Google Calendar or Slack.
+ */
+export type ChatToolExecutionMode = 'inline' | 'webhook' | 'builtin' | 'integration';
+
+/**
+ * Spoken lead-in behavior before a server-executed tool runs. `auto` lets the
+ * gateway decide from the tool's recent execution durations; `always` forces a
+ * spoken lead-in (the gateway injects one when the model didn't produce any);
+ * `never` runs the tool silently.
+ */
+export type ChatToolPreToolSpeech = 'auto' | 'always' | 'never';
+
+/**
+ * Source-of-execution config. Required when `executionMode` is
+ * `webhook`, `builtin`, or `integration`. Mirrors the SpekoTool `source` shape inside
+ * `@spekoai/tool-execution`.
+ */
+export type ChatToolSource =
+  | { kind: 'inline' }
+  | {
+      kind: 'webhook';
+      url: string;
+      /** Pointer into Speko's secrets store. Created via `POST /v1/agents/:id/tools` (which encrypts and stores the raw secret). */
+      secretRef: string;
+      headers?: Record<string, string>;
+      /**
+       * Outbound auth headers whose values are secret-referenced (resolved and
+       * injected by Speko at call time). The raw credential never leaves the
+       * server — only the `secretRef` pointer is exposed.
+       */
+      authHeaders?: Array<{ name: string; secretRef: string }>;
+      timeoutMs?: number;
+      /** `async` returns `asyncAck` immediately while Speko dispatches the webhook in the background. */
+      responseMode?: 'sync' | 'async';
+      /** LLM-facing acknowledgement used when `responseMode` is `async`. */
+      asyncAck?: string;
+    }
+  | { kind: 'builtin'; name: string; config?: unknown }
+  | {
+      kind: 'integration';
+      installationId: string;
+      appKey: string;
+      actionKey: string;
+      config?: unknown;
+    };
+
+/**
+ * Tool definition exposed to the LLM. `parameters` is a JSON Schema (draft-7)
+ * object — typically generated from a Zod schema via
+ * `llm.toJsonSchema()` from `@livekit/agents`.
+ *
+ * `executionMode` and `source` are optional and back-compat: omitting
+ * both preserves the v0.3 inline behavior. Set `executionMode: 'webhook'`
+ * with a matching `source: { kind: 'webhook', ... }` or
+ * `source: { kind: 'integration', ... }` to opt into server-managed execution.
+ */
+export interface ChatTool {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  executionMode?: ChatToolExecutionMode;
+  source?: ChatToolSource;
+  /** Spoken lead-in behavior before this tool executes. Defaults to `auto` for registered tools. */
+  preToolSpeech?: ChatToolPreToolSpeech;
+}
+
+/** Mirrors LiveKit's `ToolChoice` for parity with the agents framework. */
+export type ChatToolChoice =
+  | 'auto'
+  | 'none'
+  | 'required'
+  | { type: 'function'; function: { name: string } };
+
+export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+
+export interface CompleteParams {
+  messages: ChatMessage[];
+  intent: RoutingIntent;
+  /**
+   * Optional voice/session identifier forwarded as `x-session-id` for
+   * server-executed tools. The value is intentionally carried out-of-band
+   * so `/v1/complete` request bodies stay provider-shaped.
+   */
+  sessionId?: string;
+  systemPrompt?: string;
+  temperature?: number;
+  maxTokens?: number;
+  reasoningEffort?: ReasoningEffort;
+  constraints?: PipelineConstraints;
+  tools?: ChatTool[];
+  toolChoice?: ChatToolChoice;
+  parallelToolCalls?: boolean;
+  /**
+   * Cap on how many provider hops the proxy may chain when one or more
+   * tools have `executionMode: 'webhook' | 'builtin'`. Each hop is one
+   * provider call. Default 8 server-side, hard cap 16. Ignored when all
+   * tools are inline (the proxy always returns toolCalls verbatim and
+   * the caller drives the loop themselves).
+   */
+  maxToolHops?: number;
+}
+
+export interface CompleteResult {
+  text: string;
+  provider: string;
+  model: string;
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+  };
+  failoverCount: number;
+  scoresRunId: string | null;
+  /** Present when the LLM invoked tools instead of (or in addition to) emitting text. */
+  toolCalls?: ChatToolCall[];
+}
+
+export type CompleteStreamEvent =
+  | {
+      type: 'meta';
+      provider: string;
+      model: string;
+      failoverCount: number;
+      totalFailoverCount: number;
+      scoresRunId: string | null;
+      hop: number;
+    }
+  | { type: 'delta'; text: string }
+  | (ChatToolCall & { type: 'tool_call' })
+  | {
+      type: 'server_tool_call';
+      id: string;
+      name: string;
+      status: 'started' | 'completed' | 'failed';
+    }
+  | (CompleteResult & { type: 'done' })
+  | { type: 'error'; error: string; code: string };
+
+// --- Realtime (S2S) ---------------------------------------------------------
+
+export type RealtimeProvider = 'openai' | 'google' | 'xai';
+
+export interface RealtimeToolSpec {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+export interface RealtimeConnectParams {
+  /** Persisted agent whose workspace webhook routes should receive lifecycle events. */
+  agentId?: string;
+  provider: RealtimeProvider;
+  model: string;
+  voice?: string;
+  systemPrompt?: string;
+  temperature?: number;
+  inputSampleRate?: 16000 | 24000;
+  outputSampleRate?: 16000 | 24000;
+  tools?: RealtimeToolSpec[];
+  /** Exact-match attributes used only for workspace webhook routing. Requires agentId. */
+  webhookTags?: Record<string, string>;
+  metadata?: Record<string, unknown>;
+  /** Max session duration in seconds. Server-capped at 1800 (30 min). */
+  ttlSeconds?: number;
+  /** Reuse when retrying an ambiguous bootstrap timeout. Generated when omitted. */
+  idempotencyKey?: string;
+}
+
+/**
+ * Event shape emitted by a `RealtimeSessionHandle`. Binary audio comes in
+ * as `audio` frames; text control messages come through typed variants.
+ */
+export type RealtimeFrame =
+  | { type: 'ready'; inputSampleRate: 16000 | 24000; outputSampleRate: 16000 | 24000 }
+  | { type: 'audio'; pcm: Uint8Array; sampleRate: number }
+  | {
+      type: 'transcript';
+      role: 'user' | 'assistant';
+      text: string;
+      final: boolean;
+    }
+  | {
+      type: 'tool_call';
+      callId: string;
+      name: string;
+      arguments: string;
+    }
+  | {
+      type: 'usage';
+      inputAudioTokens: number;
+      outputAudioTokens: number;
+    }
+  | { type: 'interruption'; at: 'user' | 'assistant' }
+  | {
+      type: 'server_tool_call';
+      id: string;
+      name: string;
+      status: 'started' | 'completed' | 'failed';
+    }
+  | { type: 'error'; code: string; message: string }
+  | { type: 'close'; code: number; reason: string };
+
+export type RealtimeEventHandler = (frame: RealtimeFrame) => void;
+
+export interface RealtimeSessionHandle {
+  readonly sessionId: string;
+  readonly expiresAt: string;
+  readonly inputSampleRate: 16000 | 24000;
+  readonly outputSampleRate: 16000 | 24000;
+
+  /** Send a PCM16 audio chunk up to the model. */
+  sendAudio(pcm: Uint8Array): void;
+
+  /** Signal user-turn boundary / commit the input buffer. */
+  commit(): void;
+
+  /** Interrupt the current assistant response. */
+  interrupt(): void;
+
+  /** Return a previously-requested tool call result. */
+  sendToolResult(callId: string, output: string): void;
+
+  /** Subscribe to frames. Returns an unsubscribe callback. */
+  on(handler: RealtimeEventHandler): () => void;
+
+  /** Close the session. Safe to call multiple times. */
+  close(code?: number, reason?: string): void;
+}
+
+// ─── Voice (phone dial) ──────────────────────────────────────────────
+
+export interface VoiceDialParams {
+  /** Destination number in E.164 format (e.g. "+12015551234"). */
+  to: string;
+  /** Caller ID. Falls back to the org default if omitted server-side. */
+  from?: string;
+  /** Persisted assistant to run for this call. When supplied, `intent` can be omitted. */
+  agentId?: string;
+  /** Routing intent — language is required, optimizeFor optional. */
+  intent?: RoutingIntent;
+  constraints?: PipelineConstraints;
+  /** TTS voice id passed through to the picked TTS provider. */
+  voice?: string;
+  /** Agent system prompt. */
+  systemPrompt?: string;
+  /** Optional first utterance. `null` is not accepted by phone dial; omit to use the agent default. */
+  firstMessage?: string;
+  /**
+   * Call-time values for template variables in `systemPrompt` / `firstMessage`.
+   * Sending this key (even `{}`) — or dialing with an agent that declares
+   * variables in its registry — compiles both strings as Liquid templates at
+   * call-create time: `{{name}}` interpolation, `{% if %}` / `{% elsif %}`
+   * branching, `| default:` filters, and platform-provided `system.*` values
+   * (`system.now`, `system.caller_number`, `system.call_id`, …).
+   *
+   * Resolution per variable: this map → the agent registry's default → inline
+   * `| default:` → the request fails with 400 `MISSING_TEMPLATE_VARIABLES`
+   * listing every unresolved name. Keys under `system.` are rejected. Omit
+   * this field entirely to send both strings verbatim (no compilation).
+   *
+   * @example
+   * ```ts
+   * await speko.voice.dial({
+   *   to: '+12015551234',
+   *   agentId: 'ag_123',
+   *   systemPrompt:
+   *     'You are {{agent_name | default: "Ava"}} calling {{customer}}. ' +
+   *     '{% if plan == "premium" %}Offer the priority upgrade.{% endif %} ' +
+   *     'The current time is {{system.now}}.',
+   *   variables: { customer: 'Mr. Lee', plan: 'premium' },
+   * });
+   * ```
+   */
+  variables?: Record<string, string>;
+  /**
+   * Per-call values for TOOLS ONLY — e.g. a short-lived access token scoped to
+   * the person being called, or a per-tenant API base URL. Unlike `variables`
+   * these never enter the system prompt, the transcript, or the model's
+   * context; they are stored encrypted and released only to tool execution.
+   * Custom-code tools read `session.secrets.<name>`; webhook tools may
+   * reference `{{name}}` in their `url` and `headers`. Names must be
+   * identifiers (`[A-Za-z_][A-Za-z0-9_]*`); up to 32 entries, 6 chars–4 KB each.
+   *
+   * @example
+   * ```ts
+   * await speko.voice.dial({
+   *   to: '+12015551234',
+   *   agentId: 'ag_123',
+   *   toolSecrets: { base_url: 'https://acme.example.com', access_token: token },
+   * });
+   * ```
+   */
+  toolSecrets?: Record<string, string>;
+  llm?: { temperature?: number; maxTokens?: number };
+  ttsOptions?: { sampleRate?: number; speed?: number };
+  sttOptions?: { keywords?: string[]; prompt?: string; language?: string };
+  /** Server-side wall-clock cap in seconds. Values are clamped server-side to 30s-4h. */
+  maxDurationSeconds?: number;
+  /**
+   * Optional per-call turn-taking overrides. `greetFirst` defaults ON for
+   * outbound (worker-side, 2026-07-03): the greeting plays immediately while
+   * AMD classifies in the background. Pass false to hold the greeting for the
+   * AMD verdict.
+   */
+  turnHandling?: {
+    /** Local VAD for cascaded calls. Omit to use Silero. */
+    vad?: { provider: 'silero' | 'ai-coustics' };
+    /**
+     * Caller-leg input enhancement (ai-coustics). Omit for the platform default;
+     * `enabled: false` turns it off; `model` is plain Quail (default) or Quail Voice
+     * Focus (primary-speaker isolation, explicit opt-in).
+     */
+    noiseCancellation?: { enabled: boolean; model?: 'quail' | 'quail-voice-focus' };
+    profile?: 'conversational' | 'ivr' | 'ivr_patient';
+    endpointing?: { minDelay?: number; maxDelay?: number };
+    interruption?: {
+      mode?: 'adaptive' | 'vad';
+      minDuration?: number;
+      minWords?: number;
+    };
+    turnDetection?: boolean | 'stt';
+    contextThreshold?: boolean;
+    greetFirst?: boolean;
+    /**
+     * Replaces the built-in prompt the answering-machine detector's classifier
+     * sees when deciding whether a human, an IVR menu or voicemail answered.
+     * Outbound only; max 2,000 characters.
+     */
+    amdPrompt?: string;
+    /**
+     * What happens when native detection identifies recordable voicemail. `hangup` ends the call at the verdict; `leave_message` waits
+     * for the greeting to finish, speaks `voicemailMessage` once, then hangs
+     * up; `agent_decides` (default) hands the verdict to the LLM and lets the
+     * prompt's own voicemail rules act. Unavailable mailboxes always end without
+     * a message. Does not apply to menus/screeners or enable disabled/carrier AMD.
+     */
+    onMachine?: 'hangup' | 'leave_message' | 'agent_decides';
+    /** Spoken once into the mailbox under `onMachine: 'leave_message'`. Renders the same `{{variables}}` as `firstMessage`. Max 2,000 characters. */
+    voicemailMessage?: string;
+  };
+  /** Optional per-call SIP routing hints. Carrier AMD requires trunk/provider support. */
+  telephony?: {
+    region?: string;
+    amd?: {
+      mode?: 'agent' | 'carrier' | 'disabled';
+      timeoutSeconds?: number;
+    };
+  };
+  /** Exact-match attributes used only for workspace webhook routing. Requires agentId. */
+  webhookTags?: Record<string, string>;
+  /** Free-form metadata round-tripped to your webhooks. */
+  metadata?: Record<string, unknown>;
+  /**
+   * @deprecated The agent-initiated end_call tool is now always on; the server
+   * accepts this field for compat but ignores it.
+   */
+  endCall?: { enabled: boolean };
+}
+
+export interface VoiceDialResult {
+  sessionId: string;
+  callControlId: string;
+  roomName: string;
+  /** 'dialing' on a real call, 'dialing-stub' if managed telephony isn't configured. */
+  status: 'dialing' | 'dialing-stub';
+  to: string;
+  from: string;
+}
+
+// ─── Sessions ────────────────────────────────────────────────────────
+
+/**
+ * One turn from `GET /v1/sessions/:id/transcript` — the lightweight live
+ * transcript poll. Note the camelCase keys: this endpoint's serialization
+ * differs from the snake_case `CallTranscriptEntry` embedded in `CallDetail`.
+ */
+export interface SessionTranscriptEntry {
+  id: string;
+  index: number;
+  source: 'user' | 'agent' | 'system';
+  text: string;
+  startedAt: string;
+  endedAt: string | null;
+  provider: string | null;
+  model: string | null;
+  /** Per-stage latency legs (ms) — null on user/system turns. */
+  eouMs: number | null;
+  llmTtftMs: number | null;
+  ttsTtfbMs: number | null;
+  latencyStatus: 'partial' | 'complete' | 'interrupted' | 'error' | null;
+  conversationalLatencyMs: number | null;
+  /** Tool calls the agent made on this turn (empty when none). */
+  toolCalls: { name: string; args: string }[];
+}
+
+export interface SessionTranscript {
+  entries: SessionTranscriptEntry[];
+}
+
+/**
+ * One push from `sessions.stream()` (SSE under the hood, auto-reconnecting).
+ * `end` is always the final event; transport-level reconnects and server
+ * stream rotations are handled inside the SDK and never surface here.
+ */
+export type SessionStreamEvent =
+  | { type: 'status'; status: string; endedAt: string | null }
+  | { type: 'transcript'; turn: SessionTranscriptEntry }
+  | { type: 'event'; event: CallEvent }
+  | { type: 'end'; reason: 'session_ended' };
+
+export interface SessionStreamOptions {
+  /**
+   * Resume position (`"<lastTurnIndex>:<lastEventCreatedAtMs>"`). Rarely
+   * needed — the iterator tracks it internally across reconnects; pass it
+   * only to resume a NEW iterator after your own process restarted.
+   */
+  cursor?: string;
+  /** Abort to stop streaming (the iterator returns). */
+  signal?: AbortSignal;
+}
+
+// ─── Phone numbers ───────────────────────────────────────────────────
+
+export type PhoneNumberDirection = 'inbound' | 'outbound' | 'both';
+export type PhoneNumberSource = 'managed' | 'sip_trunk';
+export type PhoneNumberSmsAssignmentStatus =
+  | 'FAILED_ASSIGNMENT'
+  | 'PENDING_ASSIGNMENT'
+  | 'ASSIGNED'
+  | 'PENDING_UNASSIGNMENT'
+  | 'FAILED_UNASSIGNMENT';
+
+export interface PhoneNumberSetupStatus {
+  status: 'ready' | 'action_required' | 'suspended';
+  inboundReady: boolean;
+  outboundReady: boolean;
+  agentReady: boolean;
+  forwardingRequired: boolean;
+  sipConnectionReady: boolean;
+  issues: string[];
+}
+
+export interface PhoneNumberRow {
+  id: string;
+  organizationId: string;
+  e164: string;
+  source: PhoneNumberSource;
+  /** Platform-neutral resource id for a platform-managed number. */
+  providerResourceId: string | null;
+  /** @deprecated Use `providerResourceId`. */
+  telnyxPhoneNumberId: string | null;
+  /** @deprecated LiveKit trunk IDs are internal and no longer exposed. */
+  sipTrunkId: string | null;
+  sipConnectionInstallationId: string | null;
+  sipProviderName: string | null;
+  direction: PhoneNumberDirection;
+  dispatchMetadataTemplate: Record<string, unknown> | null;
+  label: string | null;
+  sms10dlcProfileId: string | null;
+  smsCampaignId: string | null;
+  smsAssignmentStatus: PhoneNumberSmsAssignmentStatus | null;
+  smsAssignmentUpdatedAt: string | null;
+  telnyxMessagingProfileId: string | null;
+  smsMessagingProfileStatus: 'pending' | 'ready' | 'failed';
+  smsMessagingProfileUpdatedAt: string | null;
+  smsMessagingProfileError: string | null;
+  smsAutomationEnabled: boolean;
+  /**
+   * 1:1 link to a persisted agent. When set, inbound calls hydrate
+   * pipeline config from the agent row instead of (or alongside) the
+   * dispatch_metadata_template.
+   */
+  agentId: string | null;
+  /**
+   * Inbound destination when this number answers to a HUMAN rather than an
+   * agent — the org-defined broker whose softphone is rung. Mutually
+   * exclusive with `agentId`: assigning one clears the other, because a number
+   * routed to a broker is provisioned so that no agent joins ahead of them.
+   */
+  routeToBrokerId: string | null;
+  setupStatus: PhoneNumberSetupStatus;
+  nextChargeAt: string;
+  lastChargedAt: string | null;
+  /** Effective billing-or-compliance suspension timestamp. */
+  suspendedAt: string | null;
+  /** Billing-only suspension, retained independently from compliance review. */
+  billingSuspendedAt?: string | null;
+  /** Compliance-only suspension for Speko-managed numbers. */
+  complianceSuspendedAt?: string | null;
+  suspensionReason?: 'billing' | 'compliance' | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PhoneNumberCreateParams {
+  e164: string;
+  direction?: PhoneNumberDirection;
+  /** Dispatch metadata template (variables `{{var}}` resolved at dial). */
+  dispatchMetadataTemplate?: Record<string, unknown>;
+  label?: string;
+  /** 1:1 link to an agent in the same org. */
+  agentId?: string;
+}
+
+export type PhoneNumberImportSipTrunkParams = {
+  e164: string;
+  /** Optional provider/account label for display. */
+  sipProviderName?: string;
+  direction?: PhoneNumberDirection;
+  /** Dispatch metadata template (variables `{{var}}` resolved at dial). */
+  dispatchMetadataTemplate?: Record<string, unknown>;
+  label?: string;
+  /** 1:1 link to an agent in the same org. */
+  agentId?: string;
+} & (
+  | {
+      /** Installed SIP connection integration id. Preferred for productized SIP connections. */
+      sipConnectionInstallationId: string;
+      /** Legacy LiveKit outbound trunk id. Ignored when `sipConnectionInstallationId` is present. */
+      sipTrunkId?: string;
+    }
+  | {
+      /** Legacy LiveKit outbound trunk id. Use `sipConnectionInstallationId` for new integrations. */
+      sipTrunkId: string;
+      sipConnectionInstallationId?: string;
+    }
+);
+
+export interface PhoneNumberUpdateParams {
+  direction?: PhoneNumberDirection;
+  dispatchMetadataTemplate?: Record<string, unknown> | null;
+  label?: string | null;
+  /** Pass `null` to unlink, a string to relink. */
+  agentId?: string | null;
+  /**
+   * Route inbound calls on this number to a human broker's softphone instead of
+   * an agent — pass your org-defined broker id, or `null` to stop. Setting
+   * it clears `agentId`, and setting `agentId` clears it; sending both in one
+   * request is a validation error. Requires the human-calling feature.
+   */
+  routeToBrokerId?: string | null;
+  /** Owner/admin-only opt-in for inbound SMS agent replies on this number. */
+  smsAutomationEnabled?: boolean;
+}
+
+export interface AvailablePhoneNumber {
+  e164: string;
+  friendlyName: string;
+  monthlyCostUsd: number;
+  upfrontCostUsd: number;
+  features: string[];
+  region: {
+    state: string | null;
+    locality: string | null;
+    rateCenter: string | null;
+  };
+}
+
+export interface PhoneNumberSearchParams {
+  /** 3-digit US area code, e.g. "415". */
+  areaCode?: string;
+  /** Optional locality filter, e.g. "San Francisco". */
+  locality?: string;
+  /** Max results. Default 10. */
+  limit?: number;
+}
+
+export type PhoneNumberKybStatus =
+  | 'missing'
+  | 'draft'
+  | 'submitted'
+  | 'approved'
+  | 'rejected'
+  | 'revoked';
+
+export type PhoneNumberKybSubmissionStatus = Exclude<PhoneNumberKybStatus, 'missing'>;
+
+export type PhoneNumberKybSlackNotificationStatus = 'not_queued' | 'queued' | 'enqueue_failed';
+
+export interface PhoneNumberKybBusinessProfile {
+  legalName: string;
+  displayName: string;
+  entityType: string;
+  country: string;
+  registrationId?: string;
+  website: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
+  useCase: string;
+  expectedUsage: string;
+}
+
+export interface PhoneNumberKybAuthorizedRepresentative {
+  name: string;
+  title: string;
+  email: string;
+  phone?: string;
+}
+
+export interface PhoneNumberKybDeclaration {
+  businessName: string;
+  useCase: string;
+}
+
+export type PhoneNumberKybAttestor =
+  | {
+      kind: 'user';
+      userId: string;
+      name: string;
+      email: string;
+      organizationRole: string | null;
+    }
+  | { kind: 'api_key'; apiKeyId: string };
+
+export interface PhoneNumberKybAttestationContract {
+  version: string;
+  text: string;
+  termsVersion: string;
+  termsUrl: string;
+}
+
+export interface PhoneNumberKybDraftParams {
+  businessProfile: PhoneNumberKybBusinessProfile;
+  authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative;
+  attestationAccepted?: boolean;
+}
+
+export type PhoneNumberKybSubmitParams =
+  | {
+      declaration: PhoneNumberKybDeclaration;
+      attestationAccepted: true;
+      attestationVersion: string;
+    }
+  | {
+      businessProfile: PhoneNumberKybBusinessProfile;
+      authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative;
+      attestationAccepted: true;
+      attestationVersion?: string;
+    };
+
+export interface PhoneNumberKybSubmission {
+  id: string;
+  organizationId: string;
+  status: PhoneNumberKybSubmissionStatus;
+  businessProfile: PhoneNumberKybBusinessProfile | null;
+  authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative | null;
+  declaration?: PhoneNumberKybDeclaration | null;
+  attestor?: PhoneNumberKybAttestor | null;
+  attestationAccepted: boolean;
+  attestationVersion?: string | null;
+  attestationText?: string | null;
+  termsVersion?: string | null;
+  attestedAt: string | null;
+  accessHoldAt?: string | null;
+  accessHoldReason?: 'rejected' | 'revoked' | null;
+  submittedByUserId: string | null;
+  submittedByEmail: string | null;
+  submittedByApiKeyId: string | null;
+  submittedAt: string | null;
+  reviewerUserId: string | null;
+  reviewerEmail: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  slackNotificationStatus: PhoneNumberKybSlackNotificationStatus;
+  slackNotificationJobId: string | null;
+  slackNotificationError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PhoneNumberKybOverview {
+  status: PhoneNumberKybStatus;
+  submission: PhoneNumberKybSubmission | null;
+  declarationPrefill?: PhoneNumberKybDeclaration;
+  requiredAttestation?: PhoneNumberKybAttestationContract;
+  attestationRequired?: boolean;
+  complianceAccess?: 'enabled' | 'awaiting_attestation' | 'suspended';
+  prefill: {
+    businessProfile: PhoneNumberKybBusinessProfile;
+    authorizedRepresentative: PhoneNumberKybAuthorizedRepresentative;
+  } | null;
+}
+
+// ─── Agents ──────────────────────────────────────────────────────────
+
+/**
+ * Routing intent for an agent's voice pipeline. Narrower than the
+ * top-level {@link RoutingIntent} — the agents API specifically
+ * accepts `latency`, `quality`, or `cost` (no `balanced` / `accuracy`).
+ */
+export interface AgentIntent {
+  /** BCP-47 language tag, e.g. "en" or "es-MX". */
+  language: string;
+  optimizeFor?: 'latency' | 'quality' | 'cost';
+}
+
+export interface AgentLlmOptions {
+  temperature?: number;
+  maxTokens?: number;
+  model?: string;
+}
+
+export interface AgentStackPreferences {
+  allowedProviders?: {
+    stt?: string[];
+    llm?: string[];
+    tts?: string[];
+    s2s?: string[];
+  };
+}
+
+export interface AgentSttOptions {
+  /** Vocabulary keywords forwarded to whichever STT provider the router picks. */
+  keywords?: string[];
+  /**
+   * Free-text transcription context (domain, names, expected phrases), max
+   * 2000 chars. Honored only by prompt-capable STT models (OpenAI
+   * gpt-4o-transcribe family, AssemblyAI Universal-3 Pro tiers).
+   */
+  prompt?: string;
+  /**
+   * STT stream-language override. A BCP-47-ish tag ('en', 'es-MX'), a
+   * provider keyword like Deepgram's 'multi', or 'auto' to let the provider
+   * detect the spoken language itself (Soniox auto-detects when hints are
+   * omitted). Never affects stack routing — that keeps the agent language.
+   */
+  language?: string;
+}
+
+/**
+ * Built-in ambience clip ids supported by the hosted worker. Custom clip
+ * uploads are intentionally not yet supported — pinning to the built-ins
+ * keeps the v1 API simple and lets the worker map straight to the
+ * `BuiltinAudioClip` enum.
+ */
+export type AgentAmbientClip =
+  | 'office-ambience'
+  | 'city-ambience'
+  | 'forest-ambience'
+  | 'crowded-room'
+  | 'keyboard-typing'
+  | 'keyboard-typing2';
+
+/**
+ * Per-agent background audio. Today only ambient (continuous loop) is
+ * supported. The ambience plays on a separate media track mixed
+ * server-side, so it reaches both browser (WebRTC) and phone (SIP) callers
+ * without any client-side change.
+ */
+export interface AgentBackgroundAudio {
+  ambient?: {
+    clip: AgentAmbientClip;
+    /**
+     * Linear gain in `[0, 16]`, defaulting to 1.0 — the clip's own recorded
+     * level, which is not the same as "full volume". The built-in clips are
+     * mastered roughly 30 dB apart, so the useful range differs per clip:
+     * `office-ambience` is very quiet (about -52 LUFS) and needs ~5-10 to sit
+     * audibly under speech, `city-ambience` is about right at 1, and
+     * `crowded-room` is loud enough that it distorts past ~1.6.
+     */
+    volume?: number;
+  };
+}
+
+export interface AgentSpeechNormalization {
+  pronunciationDictionary?: Record<string, string>;
+  textReplacements?: Record<string, string>;
+}
+
+/**
+ * A caller-defined post-call extraction field. Only meaningful on the
+ * `postCall` webhook: the call-analysis pass fills each from the transcript per
+ * `description`, typed by `type`, and the values are delivered under the
+ * webhook payload's top-level `custom_data` object keyed by `name`. `options`
+ * is required for `enum` fields.
+ */
+export interface AgentExtractionField {
+  /**
+   * Stable key the value lands under in `custom_data`. Must be a valid
+   * identifier (`^[a-zA-Z_][a-zA-Z0-9_]*$`), up to 64 chars, unique per webhook.
+   */
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'enum';
+  /**
+   * Instruction the LLM uses to extract this field. 1 to 10,000 characters,
+   * and at most 40,000 characters combined across all fields on the webhook.
+   */
+  description: string;
+  /**
+   * Allowed values — required (and only valid) when `type` is `'enum'`.
+   * 1–50 options, each up to 120 characters.
+   */
+  options?: string[];
+}
+
+/**
+ * Outbound auth header input — `value` is the plaintext credential Speko
+ * encrypts at rest. Required on create; omit on update to keep the value
+ * already stored under this header's ref.
+ */
+export interface AgentWebhookAuthHeaderInput {
+  name: string;
+  value?: string;
+}
+
+/** Outbound auth header as returned by the API — value stays server-side. */
+export interface AgentWebhookAuthHeader {
+  name: string;
+  secretRef: string;
+}
+
+export interface AgentLifecycleWebhookCreate {
+  url: string;
+  /**
+   * Optional per-webhook signing secret. When supplied, this endpoint signs
+   * with its own secret instead of the shared org-level secret from API keys.
+   */
+  secret?: string;
+  headers?: Record<string, string>;
+  /** Secret-referenced outbound auth headers (e.g. a Bearer token your endpoint requires). */
+  authHeaders?: AgentWebhookAuthHeaderInput[];
+  timeoutMs?: number;
+  responseMode?: 'sync' | 'async';
+  asyncAck?: string;
+  /** Post-call data-extraction fields. Applies to the `postCall` webhook only. */
+  extractionFields?: AgentExtractionField[];
+}
+
+export interface AgentLifecycleWebhookUpdate {
+  url: string;
+  /**
+   * Optional per-webhook signing secret. Supply to set/rotate a per-webhook
+   * secret; omit to keep the existing (or shared org-level) secret.
+   */
+  secret?: string;
+  headers?: Record<string, string>;
+  /** Secret-referenced outbound auth headers. Replaces the stored set; omit a `value` to keep it. */
+  authHeaders?: AgentWebhookAuthHeaderInput[];
+  timeoutMs?: number;
+  responseMode?: 'sync' | 'async';
+  asyncAck?: string;
+  /** Post-call data-extraction fields. Applies to the `postCall` webhook only. */
+  extractionFields?: AgentExtractionField[];
+}
+
+export interface AgentLifecycleWebhookSerialized {
+  url: string;
+  secretRef: string;
+  headers?: Record<string, string>;
+  /** Outbound auth-header pointers; values stay encrypted server-side. */
+  authHeaders?: AgentWebhookAuthHeader[];
+  timeoutMs?: number;
+  responseMode?: 'sync' | 'async';
+  asyncAck?: string;
+  /** Post-call data-extraction fields. Present on the `postCall` webhook only. */
+  extractionFields?: AgentExtractionField[];
+}
+
+export interface AgentWebhooksSerialized {
+  preCall?: AgentLifecycleWebhookSerialized;
+  postCall?: AgentLifecycleWebhookSerialized;
+  status?: AgentLifecycleWebhookSerialized;
+  /** Dedicated `call.analysis` webhook — LLM analysis results only. */
+  analysis?: AgentLifecycleWebhookSerialized;
+  /** Dedicated `call.recording` webhook — fires when the recording turns terminal. */
+  recording?: AgentLifecycleWebhookSerialized;
+}
+
+export interface AgentWebhooksCreate {
+  preCall?: AgentLifecycleWebhookCreate;
+  postCall?: AgentLifecycleWebhookCreate;
+  status?: AgentLifecycleWebhookCreate;
+  /**
+   * Dedicated `call.analysis` webhook. Delivered once per call when the LLM
+   * analysis completes: summary, outcome, structured_data, and custom_data —
+   * without the transcript/cost/recording of the combined `call.report`.
+   */
+  analysis?: AgentLifecycleWebhookCreate;
+  /**
+   * Dedicated `call.recording` webhook. Delivered once per call when the
+   * recording reaches a terminal state — `ready` carries the presigned
+   * `recording_url` (7-day TTL), `failed` carries `recording_url: null`.
+   */
+  recording?: AgentLifecycleWebhookCreate;
+}
+
+export interface AgentWebhooksUpdate {
+  preCall?: AgentLifecycleWebhookUpdate | null;
+  postCall?: AgentLifecycleWebhookUpdate | null;
+  status?: AgentLifecycleWebhookUpdate | null;
+  analysis?: AgentLifecycleWebhookUpdate | null;
+  recording?: AgentLifecycleWebhookUpdate | null;
+}
+
+// ─── Workspace webhooks ─────────────────────────────────────────────
+
+/**
+ * Everything a workspace webhook endpoint can subscribe to.
+ *
+ * Two families, and they behave differently on the wire:
+ *
+ * **AI voice-session events** (`call.pre_call` … `call.recording`) describe one
+ * `voice_session` as it progresses, and carry a `session_id`.
+ *
+ * **Programmable-voice control events** (`call.initiated` … `call.hangup`) are
+ * the webhook projection of the human-calling event stream — the same events
+ * {@link CallControl.events} returns. A human call is not a `voice_session`, so
+ * there is no session id to correlate on: the payload carries `call_id`,
+ * `control_id` (null for call-scoped events that belong to no single leg),
+ * `event_id` and `occurred_at`, merged with the event's own payload, and
+ * `call_id` is the correlation key.
+ *
+ * Control events are delivered **once, without automatic retry**. Only
+ * `call.report`, `call.analysis` and `call.recording` are durable — for those, a
+ * failed delivery is re-attempted on a backoff. A control event that misses its
+ * endpoint is gone from the webhook feed; the call's own event history
+ * ({@link CallControl.events}) is the durable record, so reconcile from there
+ * rather than treating the webhook as a queue.
+ */
+export type WorkspaceWebhookEventType =
+  | 'call.pre_call'
+  | 'call.status'
+  | 'call.report'
+  | 'call.analysis'
+  | 'call.recording'
+  | 'call.initiated'
+  | 'call.ringing'
+  | 'call.answered'
+  | 'call.bridged'
+  | 'call.hold'
+  | 'call.unhold'
+  | 'call.mute'
+  | 'call.unmute'
+  // No `call.dtmf.received`: an inbound keypress reaches the platform as an
+  // in-room data packet addressed to room participants, never to the webhook
+  // receiver, so there is no server-side producer to subscribe to. Read it off
+  // the room's data channel in the browser instead.
+  | 'call.dtmf.sent'
+  | 'call.transfer.initiated'
+  | 'call.transfer.completed'
+  | 'call.transfer.failed'
+  | 'call.leg.hangup'
+  | 'call.hangup'
+  | 'sms.received'
+  | 'sms.accepted'
+  | 'sms.sent'
+  | 'sms.delivered'
+  | 'sms.delivery_failed'
+  | 'sms.submission_unknown'
+  | 'sms.opted_out'
+  | 'sms.opted_in';
+
+export type WebhookEventType =
+  | WorkspaceWebhookEventType
+  | 'imessage.received'
+  | 'imessage.reaction_received'
+  | 'imessage.sent'
+  | 'imessage.delivered'
+  | 'imessage.delivery_failed';
+
+export type WebhookDeliveryStatus =
+  | 'pending'
+  | 'delivering'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'expired';
+
+export interface WebhookEndpointAuthHeaderInput {
+  name: string;
+  /** Write-only plaintext. The server encrypts it and never returns it. */
+  value: string;
+}
+
+export interface WebhookEndpointAuthHeaderUpdate {
+  name: string;
+  /** Supply to set or rotate; omit to retain the stored value for this header name. */
+  value?: string;
+}
+
+export interface WebhookEndpointInput {
+  name: string;
+  url: string;
+  events: WorkspaceWebhookEventType[];
+  /** Defaults to true. When false, agentIds must contain at least one agent. */
+  allAgents?: boolean;
+  agentIds?: string[];
+  filterTags?: Record<string, string>;
+  headers?: Record<string, string>;
+  authHeaders?: WebhookEndpointAuthHeaderInput[];
+  timeoutMs?: number;
+  signingSecretSource?: 'workspace' | 'custom';
+  /** Write-only. Required when signingSecretSource is custom. */
+  signingSecret?: string;
+  extractionFields?: AgentExtractionField[];
+  /** Include message text, or emit metadata-only SMS payloads. Defaults to full. */
+  contentMode?: 'full' | 'metadata_only';
+}
+
+export type WebhookEndpointUpdate = Partial<Omit<WebhookEndpointInput, 'authHeaders'>> & {
+  authHeaders?: WebhookEndpointAuthHeaderUpdate[];
+};
+
+export interface WebhookEndpoint {
+  id: string;
+  name: string;
+  url: string;
+  events: WorkspaceWebhookEventType[];
+  allAgents: boolean;
+  agentIds: string[];
+  filterTags: Record<string, string>;
+  headers: Record<string, string>;
+  authHeaders: Array<{ name: string; configured: true }>;
+  timeoutMs: number;
+  signingSecretSource: 'workspace' | 'custom';
+  hasCustomSigningSecret: boolean;
+  extractionFields: AgentExtractionField[];
+  contentMode: 'full' | 'metadata_only';
+  legacyManaged: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebhookDeliveryListParams {
+  endpointId?: string;
+  event?: WebhookEventType;
+  agentId?: string;
+  status?: WebhookDeliveryStatus;
+  sessionId?: string;
+  eventId?: string;
+  from?: string;
+  to?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  eventId: string;
+  endpointId: string;
+  endpointName: string;
+  endpointKind: 'workspace' | 'imessage';
+  endpointDeleted: boolean;
+  event: WebhookEventType;
+  sessionId: string | null;
+  agentId: string | null;
+  webhookTags: Record<string, string>;
+  status: WebhookDeliveryStatus;
+  attempts: number;
+  httpStatus: number | null;
+  error: string | null;
+  occurredAt: string;
+  expiresAt: string;
+  deliveredAt: string | null;
+  createdAt: string;
+  /** False for provider-retried iMessage subscriber deliveries. */
+  canRedeliver: boolean;
+}
+
+export interface WebhookDeliveryEndpointOption {
+  id: string;
+  name: string;
+  kind: 'workspace' | 'imessage';
+  deleted: boolean;
+}
+
+export interface WebhookDeliveryPage {
+  data: WebhookDelivery[];
+  nextCursor: string | null;
+  endpointOptions: WebhookDeliveryEndpointOption[];
+}
+
+export interface WebhookDeliveryAttempt {
+  id: string;
+  attemptNumber: number;
+  trigger: 'automatic' | 'manual';
+  requestUrl: string;
+  requestHeaders: Record<string, string>;
+  requestBody: Record<string, unknown>;
+  responseStatus: number | null;
+  responseBody: string | null;
+  responseTruncated: boolean;
+  durationMs: number;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface WebhookDeliveryDetail extends Omit<WebhookDelivery, 'attempts'> {
+  attemptCount: number;
+  requestPayload: Record<string, unknown>;
+  attempts: WebhookDeliveryAttempt[];
+}
+
+/**
+ * One prompt-variable registry entry. `defaultValue` fills the variable when a
+ * session/dial call omits it (empty string = declared optional: renders blank
+ * and `{% if %}` branches false). Without a default the variable is required
+ * per call — omitting it fails session create with 400
+ * `MISSING_TEMPLATE_VARIABLES`. Names may not use the reserved `system.`
+ * namespace.
+ */
+export interface AgentPromptVariable {
+  name: string;
+  defaultValue?: string;
+  description?: string;
+}
+
+/** Turn-taking configuration for cascaded agents. Realtime agents ignore VAD. */
+export interface AgentTurnHandling {
+  /** Local VAD provider. Omit to use Silero. */
+  vad?: { provider: 'silero' | 'ai-coustics' };
+  /**
+   * Caller-leg input enhancement (ai-coustics). Omit for the platform default;
+   * `enabled: false` turns it off; `model` is plain Quail (default) or Quail Voice
+   * Focus (primary-speaker isolation, explicit opt-in).
+   */
+  noiseCancellation?: { enabled: boolean; model?: 'quail' | 'quail-voice-focus' };
+  profile?: 'conversational' | 'ivr' | 'ivr_patient';
+  endpointing?: { minDelay?: number; maxDelay?: number };
+  interruption?: {
+    mode?: 'adaptive' | 'vad';
+    minDuration?: number;
+    minWords?: number;
+  };
+  turnDetection?: boolean | 'stt';
+  contextThreshold?: boolean;
+  textGate?: boolean;
+  turnDetector?: 'smart_turn' | 'speko_turn_v1';
+  dtmfToolDescription?: string;
+  amdPrompt?: string;
+  waitForCallee?: boolean;
+  onMachine?: 'hangup' | 'leave_message' | 'agent_decides';
+  voicemailMessage?: string;
+}
+
+export interface AgentRow {
+  id: string;
+  organizationId: string;
+  name: string;
+  systemPrompt: string;
+  voice: string | null;
+  intent: AgentIntent;
+  llmOptions: AgentLlmOptions | null;
+  stackPreferences: AgentStackPreferences | null;
+  sttOptions: AgentSttOptions | null;
+  backgroundAudio: AgentBackgroundAudio | null;
+  speechNormalization: AgentSpeechNormalization | null;
+  turnHandling: AgentTurnHandling | null;
+  /** @deprecated Use organization-owned `speko.webhooks` endpoints. */
+  webhooks: AgentWebhooksSerialized | null;
+  /**
+   * Post-call extraction schema on the agent itself — no webhook required.
+   * Merged with `webhooks.postCall.extractionFields`; the agent-level
+   * definition wins on a name collision.
+   */
+  extractionFields: AgentExtractionField[];
+  /** Prompt-variable registry. Returned on single-agent reads; null = empty. */
+  promptVariables?: AgentPromptVariable[] | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentCreateParams {
+  name: string;
+  systemPrompt: string;
+  voice?: string;
+  intent: AgentIntent;
+  llmOptions?: AgentLlmOptions;
+  stackPreferences?: AgentStackPreferences;
+  sttOptions?: AgentSttOptions;
+  backgroundAudio?: AgentBackgroundAudio;
+  speechNormalization?: AgentSpeechNormalization;
+  turnHandling?: AgentTurnHandling;
+  /** @deprecated Use `speko.webhooks.create()` after creating the agent. */
+  webhooks?: AgentWebhooksCreate;
+  /**
+   * Post-call extraction schema on the agent itself — no webhook required.
+   * Merged with `webhooks.postCall.extractionFields`; the agent-level
+   * definition wins on a name collision.
+   */
+  extractionFields?: AgentExtractionField[];
+  /** Declare the prompt's `{{variables}}` with per-agent defaults/descriptions. */
+  promptVariables?: AgentPromptVariable[];
+}
+
+export type AgentUpdateParams = Partial<Omit<AgentCreateParams, 'webhooks' | 'turnHandling'>> & {
+  /** Set to null to clear all stored turn-taking overrides. */
+  turnHandling?: AgentTurnHandling | null;
+  /** @deprecated Use `speko.webhooks.update()` for organization-owned endpoints. */
+  webhooks?: AgentWebhooksUpdate | null;
+  /**
+   * Post-call extraction schema on the agent itself — no webhook required.
+   * Merged with `webhooks.postCall.extractionFields`; the agent-level
+   * definition wins on a name collision.
+   */
+  /** `null` clears the schema. */
+  extractionFields?: AgentExtractionField[] | null;
+};
+
+// ─── Calls ───────────────────────────────────────────────────────────
+
+export interface CallTranscriptEntry {
+  id: string;
+  index: number;
+  source: 'user' | 'agent' | 'system';
+  text: string;
+  started_at: string;
+  ended_at: string | null;
+  provider: string | null;
+  model: string | null;
+  metadata: Record<string, unknown>;
+  eou_ms?: number | null;
+  llm_ttft_ms?: number | null;
+  tts_ttfb_ms?: number | null;
+  latency_status?: 'partial' | 'complete' | 'interrupted' | 'error' | null;
+  conversational_latency_ms?: number | null;
+}
+
+export interface CallCostLine {
+  provider: string;
+  metric: string;
+  quantity: number;
+  keySource: KeySource;
+  costMicroUsd: string;
+}
+
+export interface CallReportWebhookDelivery {
+  endpointId: string;
+  deliveryId: string;
+  eventId: string;
+  delivered: boolean;
+  status: number | null;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface CallReport {
+  session_id: string;
+  organization_id: string;
+  summary: string;
+  outcome: string;
+  structured_data: Record<string, unknown>;
+  /**
+   * Caller-defined extraction values, keyed by field name — the same object the
+   * `call.report` webhook delivers. `{}` when the agent declares no fields.
+   */
+  custom_data: Record<string, unknown>;
+  transcript: { entries: CallTranscriptEntry[] };
+  cost_micro_usd: string;
+  cost_breakdown: CallCostLine[];
+  artifacts: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  scheduled_callback: ScheduledCallback | Record<string, unknown> | null;
+  analysis_status: 'heuristic' | 'completed' | 'failed';
+  analysis_provider: string | null;
+  analysis_model: string | null;
+  analysis_error: string | null;
+  analysis_completed_at: string | null;
+  /** @deprecated Aggregate retained through the current SDK major version. */
+  post_call_webhook_status: 'not_configured' | 'pending' | 'delivered' | 'failed';
+  /** @deprecated Aggregate retained through the current SDK major version. */
+  post_call_webhook_attempts: number;
+  /** @deprecated Aggregate retained through the current SDK major version. */
+  post_call_webhook_next_retry_at: string | null;
+  /** @deprecated Aggregate retained through the current SDK major version. */
+  post_call_webhook_delivered_at: string | null;
+  /** @deprecated Aggregate retained through the current SDK major version. */
+  post_call_webhook_error: string | null;
+  /** Canonical per-endpoint results; singular post-call fields are deprecated aggregates. */
+  webhook_deliveries: CallReportWebhookDelivery[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type ScheduledCallbackStatus =
+  | 'scheduled'
+  | 'dispatching'
+  | 'dispatched'
+  | 'cancelled'
+  | 'failed';
+
+export interface ScheduledCallback {
+  id: string;
+  organization_id: string;
+  source_session_id: string | null;
+  created_session_id: string | null;
+  agent_id: string | null;
+  phone_number_id: string | null;
+  to_number: string;
+  from_number: string | null;
+  scheduled_at: string;
+  status: ScheduledCallbackStatus;
+  reason: string | null;
+  instructions: string | null;
+  summary: string | null;
+  pipeline_config: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  failure_cause: string | null;
+  attempted_at: string | null;
+  dispatched_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduledCallbacksListParams {
+  status?: ScheduledCallbackStatus;
+  sourceSessionId?: string;
+  limit?: number;
+}
+
+export interface CancelScheduledCallbackParams {
+  reason?: string;
+}
+
+export interface FinalizeCallReportParams {
+  forceAnalysis?: boolean;
+  retryWebhook?: boolean;
+}
+
+export interface FinalizeCallReportResult {
+  session_id: string;
+  summary: string;
+  outcome: string;
+  cost_micro_usd: string;
+  /** @deprecated Aggregate retained through the current SDK major version. */
+  webhook: unknown;
+  webhook_deliveries: CallReportWebhookDelivery[];
+}
+
+export interface CallRecording {
+  url: string;
+}
+
+export interface WebJoinParams {
+  /** Display name other participants (and transcripts) see for the joiner. */
+  displayName?: string;
+}
+
+export interface WebJoinResult {
+  /** LiveKit access token for the live call's room. Mint at click time — short TTL. */
+  token: string;
+  /** Public LiveKit URL the browser connects to (pass both to `@spekoai/client`). */
+  url: string;
+  /** Participant identity minted for this join (unique per join). */
+  identity: string;
+  roomName: string;
+  /** ISO timestamp the token stops being accepted for NEW connections. */
+  expiresAt: string;
+}
+
+export interface EndCallResult {
+  ok: true;
+  /** `ending` when teardown was requested; `already_ended` when the call was over. */
+  status: 'ending' | 'already_ended';
+  /** ISO timestamp, present only with `already_ended`. */
+  ended_at?: string;
+}
+
+export interface CallEvent {
+  id: string;
+  session_id: string | null;
+  organization_id: string;
+  provider: 'livekit' | 'telnyx' | 'speko' | string;
+  event_type: string;
+  status: string | null;
+  failure_cause: string | null;
+  sip_status_code: number | null;
+  sip_status: string | null;
+  occurred_at: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface CallTransfer {
+  id: string;
+  session_id: string;
+  organization_id: string;
+  kind: 'blind' | 'warm';
+  status: 'requested' | 'screening' | 'bridging' | 'completed' | 'failed' | 'cancelled';
+  transfer_to: string;
+  from_room_name: string | null;
+  consultation_room_name: string | null;
+  caller_participant_identity: string | null;
+  recipient_participant_identity: string | null;
+  outbound_trunk_id: string | null;
+  screening_prompt: string | null;
+  summary: string | null;
+  failure_cause: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export interface CallTransferResponse extends CallTransfer {
+  routing_attempts?: (CallTransfer | null)[];
+  next_transfer?: CallTransfer | null;
+  fallback?: WarmTransferFallbackResult | null;
+}
+
+export interface CallDetail {
+  id: string;
+  call_id: string;
+  resource_uri: string;
+  agent_id: string | null;
+  status: string;
+  kind: string;
+  room_name: string | null;
+  language: string;
+  pipeline_config: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  recording_status: string | null;
+  recording_duration_ms: number | null;
+  recording_resource_uri: string;
+  report: CallReport | null;
+  transfers: CallTransfer[];
+  transcript: { entries: CallTranscriptEntry[] };
+  span_tree: Record<string, unknown>;
+}
+
+export interface BlindTransferParams {
+  to: string;
+  participantIdentity?: string;
+  playDialtone?: boolean;
+  ringingTimeout?: number;
+  headers?: Record<string, string>;
+}
+
+export interface WarmTransferDestination {
+  to: string;
+  label?: string;
+  outboundTrunkId?: string;
+  screeningPrompt?: string;
+  summary?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WarmTransferFallback {
+  strategy?: 'return_to_assistant' | 'take_message' | 'end_call';
+  message?: string;
+  takeMessagePrompt?: string;
+  holdAudioUrl?: string;
+}
+
+export interface WarmTransferVoicemailDetection {
+  mode?: 'agent' | 'amd' | 'disabled';
+  enabled?: boolean;
+  timeoutSeconds?: number;
+}
+
+export interface WarmTransferFallbackResult {
+  action: 'return_to_assistant' | 'take_message' | 'end_call';
+  message: string;
+  take_message_prompt: string | null;
+  hold_audio_url: string | null;
+  voicemail_detected: boolean;
+}
+
+export interface WarmTransferParams {
+  to?: string;
+  destinations?: WarmTransferDestination[];
+  from?: string;
+  participantIdentity?: string;
+  outboundTrunkId?: string;
+  screeningPrompt?: string;
+  summary?: string;
+  ringingTimeout?: number;
+  waitUntilAnswered?: boolean;
+  fallback?: WarmTransferFallback;
+  voicemailDetection?: WarmTransferVoicemailDetection;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CompleteWarmTransferParams {
+  recipientParticipantIdentity?: string;
+  summary?: string;
+}
+
+export interface CancelWarmTransferParams {
+  reason?: string;
+  summary?: string;
+  tryNext?: boolean;
+  voicemailDetected?: boolean;
+}
+
+export interface AgentCallListParams {
+  /** Max rows. Default 50, server-capped at 100. */
+  limit?: number;
+  /** ISO timestamp returned as `next_cursor` from the previous page. */
+  cursor?: string;
+  /** ISO timestamp lower bound for calls to include. */
+  since?: string;
+}
+
+export interface AgentCallListEntry {
+  id: string;
+  call_id: string;
+  resource_uri: string;
+  agent_id: string;
+  status: string;
+  kind: string;
+  room_name: string | null;
+  language: string;
+  created_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  recording_status: string | null;
+}
+
+export interface AgentCallListPage {
+  calls: AgentCallListEntry[];
+  entries: AgentCallListEntry[];
+  next_cursor: string | null;
+}
+
+// ─── Agent tools ─────────────────────────────────────────────────────
+
+export interface AgentToolSourceInline {
+  kind: 'inline';
+}
+
+/**
+ * HTTP verb for a webhook tool. Omitting it means `POST`, so a tool
+ * written before this field existed is unchanged.
+ *
+ * `GET` and `DELETE` send NO request body — not a `body` template and not
+ * the default envelope either. Pairing one with `body` is rejected with
+ * `422 WEBHOOK_TEMPLATE_INVALID` rather than silently dropping the body.
+ */
+export type AgentToolWebhookMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'GET';
+
+/**
+ * JSON body template for a webhook tool.
+ *
+ * Omit it and Speko sends its fixed envelope —
+ * `{tool, args, idempotency_key, session_id, tool_call_id}` — unchanged.
+ * Supply one and it REPLACES that envelope, so a tool can post the shape
+ * a third-party API actually wants.
+ *
+ * Every string leaf interpolates `{{name}}`: any session `variables` or
+ * `toolSecrets` entry, plus these reserved names —
+ *
+ * | Name                  | Substitutes                                          |
+ * | --------------------- | ---------------------------------------------------- |
+ * | `{{tool_name}}`       | the tool's name                                      |
+ * | `{{session_id}}`      | the session id                                       |
+ * | `{{tool_call_id}}`    | the model's tool-call id                             |
+ * | `{{idempotency_key}}` | `<session_id>:<tool_call_id>`                        |
+ * | `{{args.<name>}}`     | one argument, JSON type preserved                    |
+ * | `{{args}}`            | the whole arguments object — whole values only        |
+ *
+ * Reserved names win over a session value of the same name. `{{args}}`
+ * must be the ENTIRE value of a key; embedding it in a longer string is
+ * rejected at write time instead of being JSON-stringified into it.
+ *
+ * Limits: 8 KB serialized, 8 levels of nesting, and no `__proto__`,
+ * `constructor` or `prototype` key. A URL whose ORIGIN is templated may
+ * not carry a body template at all — see the tool-calling guide.
+ */
+export type AgentToolWebhookBody = Record<string, unknown> | unknown[];
+
+/**
+ * Webhook source as sent to {@link AgentTools.create}. The plaintext
+ * `secret` is encrypted server-side; the returned row carries
+ * `secretRef` instead.
+ */
+export interface AgentToolSourceWebhookCreate {
+  kind: 'webhook';
+  url: string;
+  /** Plaintext shared secret. Encrypted server-side at write time. */
+  secret: string;
+  headers?: Record<string, string>;
+  /** Secret-referenced outbound auth headers (e.g. a Bearer token your endpoint requires). */
+  authHeaders?: AgentWebhookAuthHeaderInput[];
+  /** HTTP verb. Omit for `POST`. `GET`/`DELETE` send no body and reject `body`. */
+  method?: AgentToolWebhookMethod;
+  /** JSON body template replacing the default envelope. See {@link AgentToolWebhookBody}. */
+  body?: AgentToolWebhookBody;
+  timeoutMs?: number;
+}
+
+/**
+ * Webhook source as returned by the API. The plaintext secret never
+ * leaves the server — only the {@link secretRef} pointer is exposed.
+ */
+export interface AgentToolSourceWebhookSerialized {
+  kind: 'webhook';
+  url: string;
+  /** Pointer into Speko's secrets store. */
+  secretRef: string;
+  headers?: Record<string, string>;
+  /** Outbound auth-header pointers; values stay encrypted server-side. */
+  authHeaders?: AgentWebhookAuthHeader[];
+  /** Absent means `POST`. */
+  method?: AgentToolWebhookMethod;
+  /** The stored body template. Configuration, not a secret — returned as saved. */
+  body?: AgentToolWebhookBody;
+  timeoutMs?: number;
+}
+
+export interface AgentToolSourceBuiltin {
+  kind: 'builtin';
+  name: string;
+  config?: unknown;
+}
+
+/**
+ * Integration source — binds the tool to an org-installed Speko app action
+ * (e.g. Google Calendar `create_event`). Speko resolves the installation and
+ * runs the action server-side at completion time. The shape is identical on
+ * create and in the serialized row (there is no secret to strip).
+ */
+export interface AgentToolSourceIntegration {
+  kind: 'integration';
+  installationId: string;
+  appKey: string;
+  actionKey: string;
+  config?: unknown;
+}
+
+/**
+ * Webhook source as sent to {@link AgentTools.update}. Unlike the create
+ * shape, `secret` is optional: omit it to keep the existing encrypted secret
+ * untouched, or supply a new one to rotate it.
+ */
+export interface AgentToolSourceWebhookUpdate {
+  kind: 'webhook';
+  url: string;
+  /** Plaintext shared secret. Omit to keep the existing stored secret; supply to rotate. */
+  secret?: string;
+  headers?: Record<string, string>;
+  /** Secret-referenced outbound auth headers. Replaces the stored set; omit a `value` to keep it. */
+  authHeaders?: AgentWebhookAuthHeaderInput[];
+  /** HTTP verb. Omit for `POST`. `GET`/`DELETE` send no body and reject `body`. */
+  method?: AgentToolWebhookMethod;
+  /** JSON body template replacing the default envelope. See {@link AgentToolWebhookBody}. */
+  body?: AgentToolWebhookBody;
+  timeoutMs?: number;
+}
+
+export type AgentToolSourceCreate =
+  | AgentToolSourceInline
+  | AgentToolSourceWebhookCreate
+  | AgentToolSourceBuiltin
+  | AgentToolSourceIntegration;
+
+export type AgentToolSourceSerialized =
+  | AgentToolSourceInline
+  | AgentToolSourceWebhookSerialized
+  | AgentToolSourceBuiltin
+  | AgentToolSourceIntegration;
+
+export type AgentToolSourceUpdate =
+  | AgentToolSourceInline
+  | AgentToolSourceWebhookUpdate
+  | AgentToolSourceBuiltin
+  | AgentToolSourceIntegration;
+
+export interface AgentToolRow {
+  id: string;
+  agentId: string;
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  source: AgentToolSourceSerialized;
+  /** Spoken lead-in behavior before this tool executes. */
+  preToolSpeech: ChatToolPreToolSpeech;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentToolCreateParams {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  source: AgentToolSourceCreate;
+  /** Spoken lead-in behavior before the tool executes. Defaults to `auto`. */
+  preToolSpeech?: ChatToolPreToolSpeech;
+}
+
+export interface AgentToolUpdateParams {
+  description?: string;
+  parameters?: Record<string, unknown>;
+  source?: AgentToolSourceUpdate;
+  preToolSpeech?: ChatToolPreToolSpeech;
+}
+
+// ─── Knowledge bases ─────────────────────────────────────────────────
+
+export interface KnowledgeBaseRow {
+  id: string;
+  organizationId: string;
+  agentId: string;
+  name: string;
+  description: string | null;
+  embeddingModel: string;
+  documentCount: number;
+  chunkCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KnowledgeBaseCreateParams {
+  agentId: string;
+  name: string;
+  description?: string;
+}
+
+export interface KnowledgeBaseListParams {
+  /** Filter to a single agent's KBs. */
+  agentId?: string;
+}
+
+export type KnowledgeBaseDocumentStatus = 'pending' | 'processing' | 'ready' | 'failed';
+
+export interface KnowledgeBaseDocumentRow {
+  id: string;
+  knowledgeBaseId: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  status: KnowledgeBaseDocumentStatus;
+  errorMessage: string | null;
+  chunkCount: number;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  ingestedAt: string | null;
+}
+
+export interface KnowledgeBaseDocumentCreateParams {
+  filename: string;
+  /** MIME type. Currently the ingest pipeline accepts `text/plain` and `text/markdown` (plus `text/x-markdown`, `application/x-markdown`). */
+  contentType: string;
+  sizeBytes: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface KnowledgeBaseDocumentUploadSpec {
+  /** Signed GCS URL valid for `expiresInSeconds` from issuance. */
+  url: string;
+  method: 'PUT';
+  /** Headers that MUST be sent on the PUT (Content-Type, length-range, etc.). */
+  headers: Record<string, string>;
+  expiresInSeconds: number;
+}
+
+export interface KnowledgeBaseDocumentCreateResult {
+  document: KnowledgeBaseDocumentRow;
+  upload: KnowledgeBaseDocumentUploadSpec;
+}
+
+/**
+ * Convenience parameter shape for {@link KnowledgeBases.uploadDocument}.
+ * The wrapper computes `sizeBytes` from `data` automatically.
+ */
+export interface KnowledgeBaseDocumentUploadParams {
+  filename: string;
+  contentType: string;
+  data: ArrayBuffer | Uint8Array | Blob;
+  metadata?: Record<string, unknown>;
+}
+
+export interface KnowledgeBaseDocumentPollOptions {
+  /** Polling interval in milliseconds. Default 2000. */
+  intervalMs?: number;
+  /** Total timeout in milliseconds. Default 120000 (2 min). */
+  timeoutMs?: number;
+}
+
+// --- Programmable voice -----------------------------------------------------
+
+/**
+ * Parameters for {@link CallControl.dial} — an outbound PSTN call placed by a
+ * human broker, not by an AI agent. For an agent dial see
+ * {@link VoiceDialParams}.
+ */
+export interface CallControlDialParams {
+  /** Destination in E.164 format (e.g. "+12015551234"). */
+  to: string;
+  /**
+   * Caller ID to present, E.164. Must be a number your org owns; falls back to
+   * the org's default outbound number when omitted.
+   */
+  from?: string;
+  /** Opaque key/values stored on the call and echoed back on every read. */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * What {@link CallControl.dial} resolves to. The join credentials come back
+ * *with* the call rather than from a second request, because the dialing
+ * broker's softphone has to already be in the room when the far end answers —
+ * fetch them afterwards and the first moments of the call are silence.
+ *
+ * Destructure both halves; `call` alone is not enough to be heard:
+ *
+ * ```ts
+ * const { call, join } = await speko.callControl.dial({ to: '+12015551234' });
+ * ```
+ */
+export interface CallControlDialResult {
+  /** The call and both of its legs — the `controlId`s every later command needs. */
+  readonly call: CallResource;
+  /** Room credentials for the dialing broker's own browser leg. */
+  readonly join: CallJoinCredentials;
+}
+
+/** Filters for {@link CallControl.list}. All optional; all AND-ed together. */
+export interface CallControlListParams {
+  /**
+   * Typed against the contract's `CallStatus` on purpose: the server validates
+   * `?status=` against the same enum and rejects anything else, so a typo is a
+   * compile error here instead of a `VALIDATION_ERROR` at runtime.
+   */
+  status?: CallStatus;
+  direction?: CallDirection;
+  /**
+   * Only calls with a browser leg owned by this broker. Unlike dialing, reading
+   * another broker's calls is allowed — a supervisor view is a legitimate use of
+   * an org-scoped credential.
+   */
+  brokerId?: string;
+  /** Newest first. Server-side default and cap apply. */
+  limit?: number;
+}
+
+// --- SMS messaging ---------------------------------------------------------
+
+export type SmsMessageStatus =
+  | 'queued'
+  | 'scheduled'
+  | 'submitting'
+  | 'accepted'
+  | 'sent'
+  | 'delivered'
+  | 'delivery_failed'
+  | 'rejected'
+  | 'submission_unknown'
+  | 'canceled'
+  | 'received';
+export type SmsMessageDirection = 'inbound' | 'outbound';
+export type SmsMessageOrigin = 'api' | 'dashboard' | 'agent_tool' | 'agent_auto_reply' | 'telnyx';
+
+export interface SmsSegmentEstimate {
+  readonly encoding: 'gsm7' | 'ucs2';
+  readonly segments: number;
+  readonly units: number;
+  readonly per_segment: number;
+}
+
+export interface SmsMessage {
+  readonly id: string;
+  readonly conversation_id: string;
+  readonly batch_id: string | null;
+  readonly from_phone_number_id: string;
+  readonly direction: SmsMessageDirection;
+  readonly origin: SmsMessageOrigin;
+  readonly from: string;
+  readonly to: string;
+  readonly text: string | null;
+  readonly campaign_id: string | null;
+  readonly brand_id: string | null;
+  readonly campaign_snapshot: Record<string, unknown> | null;
+  readonly consent_id: string | null;
+  readonly consent_basis: string | null;
+  readonly recipient_timezone: string | null;
+  readonly requested_send_at: string | null;
+  readonly effective_send_at: string | null;
+  readonly terminal_at: string | null;
+  readonly status: SmsMessageStatus;
+  readonly provider_status: string | null;
+  readonly encoding: 'gsm7' | 'ucs2' | null;
+  readonly estimated_segments: number;
+  readonly segment_count: number;
+  readonly estimated: SmsSegmentEstimate;
+  readonly charged_micro_usd: string;
+  readonly provider_cost_micro_usd: string | null;
+  readonly metadata: Record<string, unknown>;
+  readonly error: { readonly code: string; readonly detail: string | null } | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface SmsPage<T> {
+  readonly data: T[];
+  readonly next_cursor: string | null;
+}
+
+export interface SmsSendParams {
+  readonly from_phone_number_id: string;
+  readonly to: string;
+  readonly text: string;
+  readonly idempotencyKey: string;
+  readonly send_at?: string;
+  readonly consent_id?: string | null;
+  readonly recipient_timezone?: string | null;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface SmsMessageListParams {
+  readonly conversation_id?: string;
+  readonly batch_id?: string;
+  readonly from_phone_number_id?: string;
+  readonly recipient?: string;
+  readonly campaign_id?: string;
+  readonly status?: SmsMessageStatus;
+  readonly direction?: SmsMessageDirection;
+  readonly origin?: SmsMessageOrigin;
+  readonly created_after?: string;
+  readonly created_before?: string;
+  readonly cursor?: string;
+  readonly limit?: number;
+}
+
+export interface SmsBatchRecipient {
+  readonly to: string;
+  readonly text: string;
+  readonly consent_id?: string | null;
+  readonly recipient_timezone?: string | null;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface SmsBatchCreateParams {
+  readonly from_phone_number_id: string;
+  readonly recipients: readonly SmsBatchRecipient[];
+  readonly idempotencyKey: string;
+  readonly send_at?: string;
+}
+
+export interface SmsBatch {
+  readonly id: string;
+  readonly from_phone_number_id: string;
+  readonly status:
+    | 'queued'
+    | 'scheduled'
+    | 'processing'
+    | 'completed'
+    | 'partially_failed'
+    | 'failed'
+    | 'canceled';
+  readonly requested_send_at: string | null;
+  readonly total_count: number;
+  readonly accepted_count: number;
+  readonly rejected_count: number;
+  readonly delivered_count: number;
+  readonly failed_count: number;
+  readonly canceled_at: string | null;
+  readonly completed_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface SmsConversation {
+  readonly id: string;
+  readonly phone_number_id: string;
+  readonly remote_phone_number: string;
+  readonly campaign_id: string | null;
+  readonly campaign_snapshot: Record<string, unknown> | null;
+  readonly status: 'open' | 'closed' | 'spam';
+  readonly automation_status: 'disabled' | 'enabled' | 'paused';
+  readonly assigned_user_id: string | null;
+  readonly assigned_agent_id: string | null;
+  readonly unread_count: number;
+  readonly recipient_timezone: string | null;
+  readonly last_inbound_at: string | null;
+  readonly last_outbound_at: string | null;
+  readonly last_message_at: string;
+  readonly content_redacted_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface SmsConversationListParams {
+  readonly status?: SmsConversation['status'];
+  readonly phone_number_id?: string;
+  readonly assigned_user_id?: string;
+  readonly assigned_agent_id?: string;
+  readonly recipient?: string;
+  readonly unread?: boolean;
+  readonly cursor?: string;
+  readonly limit?: number;
+}
+
+export interface SmsConversationUpdate {
+  readonly status?: SmsConversation['status'];
+  readonly assigned_user_id?: string | null;
+  readonly assigned_agent_id?: string | null;
+  readonly automation_status?: SmsConversation['automation_status'];
+  readonly recipient_timezone?: string | null;
+}
+
+export interface SmsConversationSendParams {
+  readonly text: string;
+  readonly idempotencyKey: string;
+  readonly send_at?: string;
+  readonly consent_id?: string | null;
+  readonly recipient_timezone?: string | null;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export type SmsConsentSource =
+  | 'inbound'
+  | 'api'
+  | 'keyword'
+  | 'webform'
+  | 'paper'
+  | 'verbal'
+  | 'import';
+
+export interface SmsConsentInput {
+  readonly recipient: string;
+  readonly campaign_id: string;
+  readonly source: SmsConsentSource;
+  readonly proof_reference?: string | null;
+  readonly proof?: string | null;
+  readonly timezone?: string | null;
+  readonly captured_at?: string;
+  readonly expires_at?: string | null;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface SmsConsent {
+  readonly id: string;
+  readonly recipient: string;
+  readonly campaign_id: string;
+  readonly status: 'active' | 'expired' | 'revoked';
+  readonly source: SmsConsentSource;
+  readonly proof_reference: string | null;
+  readonly proof_hash: string | null;
+  readonly timezone: string | null;
+  readonly captured_at: string;
+  readonly expires_at: string | null;
+  readonly revoked_at: string | null;
+  readonly revoked_reason: string | null;
+  readonly metadata: Record<string, unknown>;
+  readonly created_at: string;
+}
+
+export interface SmsConsentListParams {
+  readonly recipient?: string;
+  readonly campaign_id?: string;
+  readonly status?: SmsConsent['status'];
+  readonly limit?: number;
+}
+
+export interface SmsSuppression {
+  readonly id: string;
+  readonly recipient: string;
+  readonly status: 'suppressed' | 'lifted';
+  readonly keyword: string | null;
+  readonly source_phone_number_id: string | null;
+  readonly source_message_provider_id: string | null;
+  readonly suppressed_at: string;
+  readonly lifted_at: string | null;
+  readonly updated_at: string;
+}
+
+export interface SmsSettings {
+  readonly messaging_profile_id: string | null;
+  readonly messaging_profile_status: string;
+  readonly webhook_config_version: number;
+  readonly opt_out_config_version: number;
+  readonly help_message: string;
+  readonly opt_out_message: string;
+  readonly opt_in_message: string;
+  readonly retention_days: number;
+  readonly quiet_hours_start: string;
+  readonly quiet_hours_end: string;
+  readonly default_timezone: string | null;
+  readonly default_automation_enabled: boolean;
+  readonly last_synced_at: string | null;
+  readonly last_error: string | null;
+  readonly updated_at: string;
+}
+
+export type SmsSettingsUpdate = Partial<
+  Pick<
+    SmsSettings,
+    | 'help_message'
+    | 'opt_out_message'
+    | 'opt_in_message'
+    | 'retention_days'
+    | 'quiet_hours_start'
+    | 'quiet_hours_end'
+    | 'default_timezone'
+    | 'default_automation_enabled'
+  >
+>;
+
+export interface SmsConversationNote {
+  readonly id: string;
+  readonly conversation_id: string;
+  readonly body: string | null;
+  readonly created_by_user_id: string;
+  readonly redacted_at: string | null;
+  readonly created_at: string;
+}
+
+export interface SmsStreamEvent {
+  readonly event: string;
+  readonly id?: string;
+  readonly message_id: string;
+  readonly conversation_id: string;
+  readonly status: SmsMessageStatus;
+  readonly occurred_at: string;
+}
