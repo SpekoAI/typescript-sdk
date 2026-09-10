@@ -1,0 +1,13 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "Speko TypeScript SDK",
+  "description": "Official Speko TypeScript SDK - one API for STT, TTS, and V2V across voice AI providers, with routing and automatic failover",
+  "folders": [],
+  "excludeFolders": ["dist", "node_modules", "tests"],
+  "excludeFiles": ["CHANGELOG.md"],
+  "rules": [
+    "Initialize with new Speko({ apiKey: process.env.SPEKO_API_KEY })",
+    "Speko routes each request across multiple voice providers; express constraints (latency, cost, language) instead of hardcoding a single provider",
+    "Full documentation lives at https://docs.speko.dev"
+  ]
+}
