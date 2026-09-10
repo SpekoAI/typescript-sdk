@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { HttpClient } from '../http.js';
+import { HttpClient, USER_AGENT } from '../http.js';
 import type { RealtimeFrame } from '../types/index.js';
 import { Realtime } from './realtime.js';
 
@@ -234,6 +234,7 @@ describe('Realtime provider-direct transport', () => {
       },
       body: 'offer-sdp',
     });
+    expect(new Headers(providerCall?.[1]?.headers).has('user-agent')).toBe(false);
     const sidebandCall = fetchMock.mock.calls[2];
     expect(sidebandCall?.[0]).toBe(
       'https://control.speko.test/v1/sessions/session-1/sidebands/openai',
@@ -242,6 +243,7 @@ describe('Realtime provider-direct transport', () => {
       attempt_id: 'attempt-1',
       provider_session_id: 'call_12345678',
     });
+    expect(new Headers(sidebandCall?.[1]?.headers).get('user-agent')).toBe(USER_AGENT);
     expect(peer.remoteDescription).toEqual({ type: 'answer', sdp: 'answer-sdp' });
 
     peer.channel.emit('open', {});
@@ -296,6 +298,7 @@ describe('Realtime provider-direct transport', () => {
     expect((telemetryCall[1]?.headers as Record<string, string>).Authorization).toBe(
       'Bearer telemetry-token',
     );
+    expect(new Headers(telemetryCall[1]?.headers).get('user-agent')).toBe(USER_AGENT);
   });
 
   it('connects directly to xAI with its short-lived client-secret subprotocol', async () => {
@@ -534,6 +537,7 @@ describe('Realtime provider-direct transport', () => {
         Authorization: 'Bearer telemetry-token',
         'Content-Type': 'application/json',
         'Idempotency-Key': `renew:attempt-1:${initialExpiry}`,
+        'User-Agent': USER_AGENT,
       },
       body: JSON.stringify({ previous_expires_at: initialExpiry }),
     });

@@ -1,4 +1,4 @@
-import type { HttpClient } from '../http.js';
+import { type HttpClient, USER_AGENT } from '../http.js';
 import type {
   RealtimeConnectParams,
   RealtimeEventHandler,
@@ -6,6 +6,16 @@ import type {
   RealtimeSessionHandle,
   RealtimeToolSpec,
 } from '../types/index.js';
+
+// Browsers own User-Agent. Leave their existing CORS contract unchanged;
+// native Node/Bun requests can identify the SDK on the control-plane path.
+const CONTROL_PLANE_HEADERS: Record<string, string> =
+  !('window' in globalThis) &&
+  !('WorkerGlobalScope' in globalThis) &&
+  typeof process !== 'undefined' &&
+  process.versions?.node
+    ? { 'User-Agent': USER_AGENT }
+    : {};
 
 interface SessionCreateResponse {
   mode: 's2s';
@@ -389,6 +399,7 @@ class ProviderDirectRealtimeHandle implements RealtimeSessionHandle {
         headers: {
           Authorization: `Bearer ${this.telemetry.token}`,
           'Content-Type': 'application/json',
+          ...CONTROL_PLANE_HEADERS,
         },
         body: JSON.stringify({ attempt_id: this.attemptId, provider_session_id: callId }),
       });
@@ -778,6 +789,7 @@ class ProviderDirectRealtimeHandle implements RealtimeSessionHandle {
         headers: {
           Authorization: `Bearer ${this.telemetry.token}`,
           'Content-Type': 'application/json',
+          ...CONTROL_PLANE_HEADERS,
           'Idempotency-Key': `renew:${this.attemptId}:${previousExpiresAt}`,
         },
         body: JSON.stringify({ previous_expires_at: previousExpiresAt }),
@@ -866,6 +878,7 @@ class ProviderDirectRealtimeHandle implements RealtimeSessionHandle {
       headers: {
         Authorization: `Bearer ${this.telemetry.token}`,
         'Content-Type': 'application/json',
+        ...CONTROL_PLANE_HEADERS,
       },
       body: JSON.stringify({ events }),
     }).catch(() => undefined);
