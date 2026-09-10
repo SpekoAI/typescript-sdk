@@ -1,3 +1,10 @@
+## 0.5.3
+
+### Fixes
+
+- Send the SDK User-Agent on native realtime telemetry, OpenAI sideband, and entitlement renewal HTTP requests.
+- Make SDK package tests portable outside the monorepo.
+
 ## 0.5.2
 
 ### Fixes

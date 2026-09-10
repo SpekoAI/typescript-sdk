@@ -6,7 +6,7 @@ export interface HttpClientOptions {
   timeout: number;
 }
 
-export const USER_AGENT = '@spekoai/sdk/0.5.2';
+export const USER_AGENT = '@spekoai/sdk/0.5.3';
 
 export class HttpClient {
   private readonly baseUrl: string;

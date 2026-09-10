@@ -13,7 +13,6 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { classifyExecutionClient } from '../../analytics/src/lib/attribution.js';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'));
@@ -197,12 +196,6 @@ describe('published SDK request version', () => {
     );
     const markers: string[] = JSON.parse(output);
     expect(markers).toEqual(Array(2).fill(`${manifest.name}/${manifest.version}`));
-    for (const userAgent of markers) {
-      expect(classifyExecutionClient(userAgent)).toMatchObject({
-        execution_client: 'sdk_ts',
-        client_evidence_class: 'observed_client_marker',
-      });
-    }
   });
 
   it.each([
