@@ -242,6 +242,13 @@ class ProviderDirectRealtimeHandle implements RealtimeSessionHandle {
   }
 
   private constructor(response: SessionCreateResponse) {
+    if ((response as { transport?: string }).transport === 'livekit') {
+      // GPT-Live (openai:gpt-live-*) is hosted on the LiveKit worker: the
+      // server returns a LiveKit room token instead of a provider credential.
+      throw new Error(
+        'This realtime model is hosted on LiveKit; connect with VoiceConversation using the returned transportToken/transportUrl instead of Realtime.connect',
+      );
+    }
     const expectedAdapter = adapterForProvider(response.provider);
     if (response.transport !== 'provider_direct' || response.adapter !== expectedAdapter) {
       throw new Error('Unsupported realtime provider-direct session plan');
