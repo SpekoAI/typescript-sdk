@@ -612,6 +612,8 @@ export interface VoiceDialParams {
     };
     turnDetection?: boolean | 'stt';
     contextThreshold?: boolean;
+    /** Opt OUT of the keypad. Unset builds send_dtmf for every agent and leaves arming to the profile and the transport verdict; false never builds it. */
+    keypad?: boolean;
     greetFirst?: boolean;
     /**
      * Replaces the built-in prompt the answering-machine detector's classifier
