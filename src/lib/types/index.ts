@@ -1046,20 +1046,66 @@ export type AgentAmbientClip =
  * server-side, so it reaches both browser (WebRTC) and phone (SIP) callers
  * without any client-side change.
  */
+/**
+ * Where a sound comes from: a built-in clip, or an audio file this
+ * organization uploaded through `/v1/sounds`. Exactly one of the two — the
+ * server rejects a body with both or neither, and the union makes that
+ * unrepresentable rather than merely documented.
+ */
+export type AgentSoundSource =
+  | { clip: AgentAmbientClip; soundId?: never }
+  | { clip?: never; soundId: string };
+
+/**
+ * Linear gain in `[0, 16]`, defaulting to 1.0 — the clip's own recorded
+ * level, which is not the same as "full volume". The built-in clips are
+ * mastered roughly 30 dB apart, so the useful range differs per clip:
+ * `office-ambience` is very quiet (about -52 LUFS) and needs ~5-10 to sit
+ * audibly under speech, `city-ambience` is about right at 1, and
+ * `crowded-room` is loud enough that it distorts past ~1.6. An uploaded
+ * sound has no measured level — start at 1 and adjust by ear.
+ */
+export type AgentAmbientAudio = AgentSoundSource & { volume?: number };
+
+/**
+ * Plays while a tool call is in flight and stops when it returns — the
+ * audible sibling of a tool's `preToolSpeech`. A webhook that takes seconds
+ * otherwise leaves dead air a caller hears as a dropped line.
+ *
+ * Individual tools override this, or opt out of it, through the tool's own
+ * `toolSound` field.
+ */
+export type AgentToolCallSound = AgentSoundSource & {
+  volume?: number;
+  /**
+   * Floor on audible time in ms (default 600). Tool latency is bimodal: a
+   * cached lookup returns in tens of milliseconds, and a burst of sound that
+   * short reads as a glitch rather than a cue.
+   */
+  minDurationMs?: number;
+  /**
+   * Silence held before the sound starts, in ms (default 0) — room for a
+   * spoken lead-in to land first. A tool that finishes inside this window
+   * plays nothing at all.
+   */
+  startDelayMs?: number;
+};
+
 export interface AgentBackgroundAudio {
-  ambient?: {
-    clip: AgentAmbientClip;
-    /**
-     * Linear gain in `[0, 16]`, defaulting to 1.0 — the clip's own recorded
-     * level, which is not the same as "full volume". The built-in clips are
-     * mastered roughly 30 dB apart, so the useful range differs per clip:
-     * `office-ambience` is very quiet (about -52 LUFS) and needs ~5-10 to sit
-     * audibly under speech, `city-ambience` is about right at 1, and
-     * `crowded-room` is loud enough that it distorts past ~1.6.
-     */
-    volume?: number;
-  };
+  ambient?: AgentAmbientAudio;
+  toolSound?: AgentToolCallSound;
 }
+
+/**
+ * One tool's departure from the agent-wide `backgroundAudio.toolSound`. Omit
+ * the field to inherit it; send `{ enabled: false }` to run that tool
+ * silently; supply a source to swap the sound for this tool only. At most one
+ * source — `enabled: true` with none means "on, with the agent's own sound".
+ */
+export type AgentToolSoundOverride = { enabled: boolean; volume?: number } & (
+  | { clip?: AgentAmbientClip; soundId?: never }
+  | { clip?: never; soundId?: string }
+);
 
 export interface AgentSpeechNormalization {
   pronunciationDictionary?: Record<string, string>;
@@ -1969,6 +2015,8 @@ export interface AgentToolRow {
   source: AgentToolSourceSerialized;
   /** Spoken lead-in behavior before this tool executes. */
   preToolSpeech: ChatToolPreToolSpeech;
+  /** Per-tool override of the agent's tool-call sound; absent = inherit it. */
+  toolSound?: AgentToolSoundOverride;
   createdAt: string;
   updatedAt: string;
 }
@@ -1980,6 +2028,7 @@ export interface AgentToolCreateParams {
   source: AgentToolSourceCreate;
   /** Spoken lead-in behavior before the tool executes. Defaults to `auto`. */
   preToolSpeech?: ChatToolPreToolSpeech;
+  toolSound?: AgentToolSoundOverride;
 }
 
 export interface AgentToolUpdateParams {
@@ -1987,6 +2036,8 @@ export interface AgentToolUpdateParams {
   parameters?: Record<string, unknown>;
   source?: AgentToolSourceUpdate;
   preToolSpeech?: ChatToolPreToolSpeech;
+  /** `null` clears the override and returns the tool to the agent default. */
+  toolSound?: AgentToolSoundOverride | null;
 }
 
 // ─── Knowledge bases ─────────────────────────────────────────────────
