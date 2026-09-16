@@ -449,6 +449,18 @@ export interface RealtimeConnectParams {
   inputSampleRate?: 16000 | 24000;
   outputSampleRate?: 16000 | 24000;
   tools?: RealtimeToolSpec[];
+  /**
+   * Gemini Live extended-thinking models only: how much the model thinks
+   * before it speaks. Those models REQUIRE a level — Speko defaults it to
+   * `low` — and every other Live model rejects the field.
+   *
+   * GPT-Live's equivalents (`backendModel`, `backendReasoningEffort`) are NOT
+   * here on purpose: that model is hosted on the LiveKit worker, and
+   * `realtime.connect` returns a provider-direct handle that refuses a LiveKit
+   * session. Accepting them would create a session and then throw. Send them
+   * on `POST /v1/sessions` and join with `VoiceConversation` instead.
+   */
+  thinkingLevel?: 'low' | 'medium' | 'high';
   /** Exact-match attributes used only for workspace webhook routing. Requires agentId. */
   webhookTags?: Record<string, string>;
   metadata?: Record<string, unknown>;

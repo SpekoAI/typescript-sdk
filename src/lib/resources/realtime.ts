@@ -49,6 +49,13 @@ interface SessionCreateResponse {
     instructions?: string;
     temperature?: number;
     tools?: RealtimeToolSpec[];
+    /**
+     * What the server resolved for a Gemini Live session. It matters here
+     * because this SDK composes the setup document: the extended-thinking
+     * model closes the socket 1007 without a level, and every other Live model
+     * closes it with one.
+     */
+    thinkingLevel?: 'low' | 'medium' | 'high';
   };
   inputSampleRate: 16000 | 24000;
   outputSampleRate: 24000;
@@ -79,6 +86,7 @@ export class Realtime {
           inputSampleRate: params.inputSampleRate,
           outputSampleRate: params.outputSampleRate,
           tools: params.tools,
+          thinkingLevel: params.thinkingLevel,
         },
         webhookTags: params.webhookTags,
         metadata: params.metadata,
@@ -936,6 +944,12 @@ function googleSessionSetup(
   }
   if (response.session.temperature !== undefined) {
     generationConfig['temperature'] = response.session.temperature;
+  }
+  // Forwarded as resolved, not decided here: the server sends a level only for
+  // a model that requires one, and the socket closes 1007 either way if this
+  // is wrong.
+  if (response.session.thinkingLevel) {
+    generationConfig['thinkingConfig'] = { thinkingLevel: response.session.thinkingLevel };
   }
   const setup: Record<string, unknown> = {
     model: `models/${response.model.replace(/^models\//, '')}`,
