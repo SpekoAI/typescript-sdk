@@ -742,6 +742,11 @@ export interface PhoneNumberSetupStatus {
   outboundReady: boolean;
   agentReady: boolean;
   forwardingRequired: boolean;
+  /**
+   * `sip:<E.164>@<host>` your carrier must forward inbound calls to when
+   * `forwardingRequired` is true; null otherwise.
+   */
+  forwardingSipUri: string | null;
   sipConnectionReady: boolean;
   issues: string[];
 }
