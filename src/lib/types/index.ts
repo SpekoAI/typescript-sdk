@@ -296,10 +296,11 @@ export interface ChatMessage {
 export type ChatToolExecutionMode = 'inline' | 'webhook' | 'builtin' | 'integration';
 
 /**
- * Spoken lead-in behavior before a server-executed tool runs. `auto` lets the
- * gateway decide from the tool's recent execution durations; `always` forces a
- * spoken lead-in (the gateway injects one when the model didn't produce any);
- * `never` runs the tool silently.
+ * Spoken hold-line behavior while a server-executed tool runs. `auto` (default)
+ * speaks one short, conversation-specific line only once the tool has run long
+ * (the worker fires it after ~1 s; the gateway predicts from recent durations),
+ * at most once per caller turn; `always` speaks up front for every call of the
+ * tool; `never` runs the tool silently. Lines never repeat within a call.
  */
 export type ChatToolPreToolSpeech = 'auto' | 'always' | 'never';
 
