@@ -596,6 +596,12 @@ export interface VoiceDialParams {
    * ```
    */
   toolSecrets?: Record<string, string>;
+  /**
+   * IANA time zone for this call, e.g. `'America/Chicago'`. Overrides the
+   * agent's saved timezone for the current date and time the agent schedules
+   * from, and for `{{system.now}}`. Omit to use the agent's.
+   */
+  timezone?: string;
   llm?: { temperature?: number; maxTokens?: number };
   ttsOptions?: { sampleRate?: number; speed?: number };
   sttOptions?: { keywords?: string[]; prompt?: string; language?: string };
