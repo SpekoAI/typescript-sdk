@@ -291,10 +291,116 @@ describe('Speko streaming endpoints', () => {
     expect(result.failoverCount).toBe(0);
     expect((await collect(result)).map((chunk) => [...chunk])).toEqual([[4], [5, 6]]);
   });
+
+  it('does not abort a synthesize stream that outlives the client timeout', async () => {
+    const chunks = [1, 2, 3, 4, 5].map((byte) => new Uint8Array([byte]));
+    mockSlowFetch(chunks, 30, { 'Content-Type': 'audio/mpeg' });
+
+    const speko = new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test', timeout: 50 });
+    const result = await speko.synthesize('Hello', { language: 'en' });
+
+    expect([...result.audio]).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('does not abort a transcribe stream that outlives the client timeout', async () => {
+    mockSlowFetch(
+      [
+        sse('transcript', { text: 'hel', isFinal: false, confidence: 0.5 }),
+        sse('transcript', { text: 'hello', isFinal: true, confidence: 0.9 }),
+        sse('transcript', { text: 'hello world', isFinal: true, confidence: 0.9 }),
+        sse('done', {
+          text: 'hello world',
+          provider: 'deepgram',
+          model: 'nova-3',
+          confidence: 0.9,
+          failoverCount: 0,
+          scoresRunId: null,
+        }),
+      ],
+      30,
+      { 'Content-Type': 'text/event-stream' },
+    );
+
+    const speko = new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test', timeout: 50 });
+    const result = await speko.transcribe(new Uint8Array([1]), { language: 'en' });
+
+    expect(result.text).toBe('hello world');
+  });
+
+  it('still times out a stream whose response never starts', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(
+        (_input, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+          }),
+      ),
+    );
+
+    const speko = new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test', timeout: 50 });
+
+    await expect(speko.synthesizeStream('Hello', { language: 'en' })).rejects.toThrow();
+    await expect(
+      collect(speko.transcribeStream(new Uint8Array([1]), { language: 'en' })),
+    ).rejects.toThrow();
+  });
+
+  it('lets the caller signal cancel a stream after the response starts', async () => {
+    const chunks = [1, 2, 3, 4, 5].map((byte) => new Uint8Array([byte]));
+    mockSlowFetch(chunks, 30, { 'Content-Type': 'audio/mpeg' });
+
+    const controller = new AbortController();
+    const speko = new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test', timeout: 50 });
+    const result = await speko.synthesizeStream('Hello', { language: 'en' }, controller.signal);
+
+    const received: number[] = [];
+    await expect(
+      (async () => {
+        for await (const chunk of result) {
+          received.push(...chunk);
+          if (received.length === 2) controller.abort();
+        }
+      })(),
+    ).rejects.toThrow();
+    expect(received).toEqual([1, 2]);
+  });
 });
 
 function mockFetch(response: Response) {
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response);
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+/**
+ * Stub fetch with a response that emits one chunk every `intervalMs` and,
+ * like a real fetch body, errors once the request signal aborts.
+ */
+function mockSlowFetch(chunks: Uint8Array[], intervalMs: number, headers: Record<string, string>) {
+  const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+    const signal = init?.signal;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        signal?.addEventListener('abort', () => {
+          clearTimeout(timer);
+          controller.error(signal.reason);
+        });
+        let index = 0;
+        const next = () => {
+          timer = setTimeout(() => {
+            controller.enqueue(chunks[index]!);
+            index += 1;
+            if (index === chunks.length) controller.close();
+            else next();
+          }, intervalMs);
+        };
+        next();
+      },
+    });
+    return new Response(body, { headers });
+  });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }

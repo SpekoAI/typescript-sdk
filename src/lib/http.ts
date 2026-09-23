@@ -222,7 +222,7 @@ export class HttpClient {
     externalSignal?: AbortSignal,
   ): Promise<AsyncIterableIterator<{ event: string; id?: string; data: unknown }>> {
     const url = `${this.baseUrl}${path}`;
-    const { signal, cleanup } = this.buildSignal(externalSignal);
+    const { signal, cleanup, clearTimer } = this.buildSignal(externalSignal);
 
     const response = await fetch(url, {
       method,
@@ -245,6 +245,10 @@ export class HttpClient {
       throw new SpekoApiError('Response body is empty', response.status, 'EMPTY_BODY');
     }
 
+    // The client timeout bounds the wait for the response, not the body: a
+    // transcript stream lasts as long as the audio and the caller's reads.
+    // The caller's signal still cancels it mid-stream.
+    clearTimer();
     return this.readSseBody(response.body, cleanup);
   }
 
@@ -256,7 +260,7 @@ export class HttpClient {
     extraHeaders?: Record<string, string>,
   ): Promise<{ chunks: AsyncIterableIterator<Uint8Array>; headers: Record<string, string> }> {
     const url = `${this.baseUrl}${path}`;
-    const { signal, cleanup } = this.buildSignal(externalSignal);
+    const { signal, cleanup, clearTimer } = this.buildSignal(externalSignal);
 
     const response = await fetch(url, {
       method,
@@ -275,6 +279,8 @@ export class HttpClient {
       throw new SpekoApiError('Response body is empty', response.status, 'EMPTY_BODY');
     }
 
+    // Same as requestRawSse: audio streams outlive the client timeout.
+    clearTimer();
     const headers: Record<string, string> = {};
     response.headers.forEach((value, key) => {
       headers[key] = value;
@@ -345,11 +351,15 @@ export class HttpClient {
   ): {
     signal: AbortSignal;
     cleanup: () => void;
+    clearTimer: () => void;
   } {
     const controller = new AbortController();
     const effectiveTimeout = timeoutMs ?? this.timeout;
     const timer =
       effectiveTimeout > 0 ? setTimeout(() => controller.abort(), effectiveTimeout) : null;
+    const clearTimer = () => {
+      if (timer) clearTimeout(timer);
+    };
 
     if (externalSignal) {
       if (externalSignal.aborted) {
@@ -360,18 +370,18 @@ export class HttpClient {
         return {
           signal: controller.signal,
           cleanup: () => {
-            if (timer) clearTimeout(timer);
+            clearTimer();
             externalSignal.removeEventListener('abort', onAbort);
           },
+          clearTimer,
         };
       }
     }
 
     return {
       signal: controller.signal,
-      cleanup: () => {
-        if (timer) clearTimeout(timer);
-      },
+      cleanup: clearTimer,
+      clearTimer,
     };
   }
 
