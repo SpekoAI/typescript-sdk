@@ -611,7 +611,8 @@ export interface VoiceDialParams {
    * Optional per-call turn-taking overrides. `greetFirst` defaults ON for
    * outbound (worker-side, 2026-07-03): the greeting plays immediately while
    * AMD classifies in the background. Pass false to hold the greeting for the
-   * AMD verdict.
+   * AMD verdict (not honoured on Realtime / `runMode: 's2s'` calls, which never
+   * hold the opening).
    */
   turnHandling?: {
     /** Local VAD for cascaded calls. Omit to use Silero. */
@@ -646,9 +647,19 @@ export interface VoiceDialParams {
      * up; `agent_decides` (default) hands the verdict to the LLM and lets the
      * prompt's own voicemail rules act. Unavailable mailboxes always end without
      * a message. Does not apply to menus/screeners or enable disabled/carrier AMD.
+     * On a Realtime (`runMode: 's2s'`) call it applies to GPT-Live only, once
+     * worker detection is enabled for the workspace (until then verdicts are
+     * only recorded), and `leave_message` is spoken in the voice model's own
+     * words; Gemini Live runs no worker detection.
      */
     onMachine?: 'hangup' | 'leave_message' | 'agent_decides';
-    /** Spoken once into the mailbox under `onMachine: 'leave_message'`. Renders the same `{{variables}}` as `firstMessage`. Max 2,000 characters. */
+    /**
+     * Spoken once into the mailbox under `onMachine: 'leave_message'`. Renders the same `{{variables}}` as `firstMessage`. Max 2,000 characters.
+     * On a Realtime (GPT-Live) call the voice model says it in its own words,
+     * after shortening it to fit the model's instruction limit (about 1,200
+     * characters of English, fewer in Chinese, Japanese, Korean or Thai), at a
+     * sentence boundary where one exists.
+     */
     voicemailMessage?: string;
   };
   /** Optional per-call SIP routing hints. Carrier AMD requires trunk/provider support. */
@@ -1498,7 +1509,21 @@ export interface AgentTurnHandling {
   dtmfToolDescription?: string;
   amdPrompt?: string;
   waitForCallee?: boolean;
+  /**
+   * What happens when outbound answering-machine detection identifies
+   * recordable voicemail — see the per-call `turnHandling.onMachine` on
+   * {@link VoiceDialParams}. On a Realtime (`runMode: 's2s'`) call it applies
+   * to GPT-Live only, once worker detection is enabled for the workspace, and
+   * `leave_message` is spoken in the voice model's own words.
+   */
   onMachine?: 'hangup' | 'leave_message' | 'agent_decides';
+  /**
+   * Spoken once into the mailbox under `onMachine: 'leave_message'`. On a
+   * Realtime (GPT-Live) call the voice model says it in its own words, after
+   * shortening it to fit the model's instruction limit (about 1,200 characters
+   * of English, fewer in Chinese, Japanese, Korean or Thai), at a sentence
+   * boundary where one exists.
+   */
   voicemailMessage?: string;
 }
 
