@@ -365,6 +365,51 @@ describe('Speko streaming endpoints', () => {
     ).rejects.toThrow();
     expect(received).toEqual([1, 2]);
   });
+
+  it('times out a synthesize stream whose body stalls after the first chunk', async () => {
+    mockStalledFetch(new Uint8Array([7]), { 'Content-Type': 'audio/mpeg' });
+
+    const speko = new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test', timeout: 50 });
+    const result = await speko.synthesizeStream('Hello', { language: 'en' });
+
+    const received: number[] = [];
+    const started = Date.now();
+    await expect(
+      (async () => {
+        for await (const chunk of result) received.push(...chunk);
+      })(),
+    ).rejects.toThrow();
+    expect(received).toEqual([7]);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(40);
+  });
+
+  it('times out a transcribe stream whose body stalls after the first chunk', async () => {
+    mockStalledFetch(sse('transcript', { text: 'hel', isFinal: false, confidence: 0.5 }), {
+      'Content-Type': 'text/event-stream',
+    });
+
+    const speko = new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test', timeout: 50 });
+
+    await expect(speko.transcribe(new Uint8Array([1]), { language: 'en' })).rejects.toThrow();
+  });
+
+  it('does not count time the caller spends between reads against the timeout', async () => {
+    mockFetch(
+      new Response(byteStream(new Uint8Array([1]), new Uint8Array([2]), new Uint8Array([3])), {
+        headers: { 'Content-Type': 'audio/mpeg' },
+      }),
+    );
+
+    const speko = new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test', timeout: 50 });
+    const result = await speko.synthesizeStream('Hello', { language: 'en' });
+
+    const received: number[] = [];
+    for await (const chunk of result) {
+      received.push(...chunk);
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    }
+    expect(received).toEqual([1, 2, 3]);
+  });
 });
 
 function mockFetch(response: Response) {
@@ -397,6 +442,25 @@ function mockSlowFetch(chunks: Uint8Array[], intervalMs: number, headers: Record
           }, intervalMs);
         };
         next();
+      },
+    });
+    return new Response(body, { headers });
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+/**
+ * Stub fetch with a response that sends headers and one chunk, then nothing,
+ * erroring the body only when the request signal aborts.
+ */
+function mockStalledFetch(first: Uint8Array, headers: Record<string, string>) {
+  const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+    const signal = init?.signal;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        signal?.addEventListener('abort', () => controller.error(signal.reason));
+        controller.enqueue(first);
       },
     });
     return new Response(body, { headers });
