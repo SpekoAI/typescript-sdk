@@ -1132,6 +1132,20 @@ export interface AgentBackgroundAudio {
 }
 
 /**
+ * Shaping of the agent's own speech, applied before the audio reaches the call
+ * (and so before a phone leg), whichever TTS provider spoke.
+ */
+export interface AgentAudioOutput {
+  /**
+   * Static gain in dB, `-24` to `12`. Negative values make the agent quieter —
+   * `-6` roughly halves the amplitude, useful for voices mastered hotter than
+   * telephone speech. Boost saturates at full scale, so it clips a voice that
+   * already peaks near 0 dBFS. Background audio is not affected.
+   */
+  gainDb: number;
+}
+
+/**
  * One tool's departure from the agent-wide `backgroundAudio.toolSound`. Omit
  * the field to inherit it; send `{ enabled: false }` to run that tool
  * silently; supply a source to swap the sound for this tool only. At most one
@@ -1538,6 +1552,7 @@ export interface AgentRow {
   stackPreferences: AgentStackPreferences | null;
   sttOptions: AgentSttOptions | null;
   backgroundAudio: AgentBackgroundAudio | null;
+  audioOutput?: AgentAudioOutput | null;
   speechNormalization: AgentSpeechNormalization | null;
   turnHandling: AgentTurnHandling | null;
   /** @deprecated Use organization-owned `speko.webhooks` endpoints. */
@@ -1563,6 +1578,7 @@ export interface AgentCreateParams {
   stackPreferences?: AgentStackPreferences;
   sttOptions?: AgentSttOptions;
   backgroundAudio?: AgentBackgroundAudio;
+  audioOutput?: AgentAudioOutput;
   speechNormalization?: AgentSpeechNormalization;
   turnHandling?: AgentTurnHandling;
   /** @deprecated Use `speko.webhooks.create()` after creating the agent. */
@@ -1577,9 +1593,13 @@ export interface AgentCreateParams {
   promptVariables?: AgentPromptVariable[];
 }
 
-export type AgentUpdateParams = Partial<Omit<AgentCreateParams, 'webhooks' | 'turnHandling'>> & {
+export type AgentUpdateParams = Partial<
+  Omit<AgentCreateParams, 'webhooks' | 'turnHandling' | 'audioOutput'>
+> & {
   /** Set to null to clear all stored turn-taking overrides. */
   turnHandling?: AgentTurnHandling | null;
+  /** `null` removes the gain (passthrough). */
+  audioOutput?: AgentAudioOutput | null;
   /** @deprecated Use `speko.webhooks.update()` for organization-owned endpoints. */
   webhooks?: AgentWebhooksUpdate | null;
   /**
