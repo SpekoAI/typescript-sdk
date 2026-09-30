@@ -19,6 +19,8 @@ export type {
   AgentSttOptions,
   AgentToolCreateParams,
   AgentToolRow,
+  AgentToolSimulation,
+  AgentToolSimulationJsonValue,
   AgentToolSourceBuiltin,
   AgentToolSourceCreate,
   AgentToolSourceInline,

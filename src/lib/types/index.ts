@@ -2086,6 +2086,8 @@ export interface AgentToolRow {
   preToolSpeech: ChatToolPreToolSpeech;
   /** Per-tool override of the agent's tool-call sound; absent = inherit it. */
   toolSound?: AgentToolSoundOverride;
+  /** Behaviour in simulated (test) runs; absent = the default policy. */
+  simulation?: AgentToolSimulation;
   createdAt: string;
   updatedAt: string;
 }
@@ -2098,6 +2100,8 @@ export interface AgentToolCreateParams {
   /** Spoken lead-in behavior before the tool executes. Defaults to `auto`. */
   preToolSpeech?: ChatToolPreToolSpeech;
   toolSound?: AgentToolSoundOverride;
+  /** Omit for the default policy; see `AgentToolSimulation`. */
+  simulation?: AgentToolSimulation;
 }
 
 export interface AgentToolUpdateParams {
@@ -2107,7 +2111,34 @@ export interface AgentToolUpdateParams {
   preToolSpeech?: ChatToolPreToolSpeech;
   /** `null` clears the override and returns the tool to the agent default. */
   toolSound?: AgentToolSoundOverride | null;
+  /** `null` clears the override and returns the tool to the default policy. */
+  simulation?: AgentToolSimulation | null;
 }
+
+/** Any JSON-serializable value. */
+export type AgentToolSimulationJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | AgentToolSimulationJsonValue[]
+  | { [key: string]: AgentToolSimulationJsonValue };
+
+/**
+ * How a tool behaves in SIMULATED sessions: automated reliability runs, Test
+ * Set evals and test calls. Real calls always run the tool.
+ *
+ * - Omitted (default): automated reliability runs mock the tool; evals and
+ *   test calls a user starts run it live.
+ * - `{ mode: 'live' }`: every simulated run calls the tool for real.
+ * - `{ mode: 'mock', response? }`: no simulated run calls it. The model gets
+ *   `response` as the tool result (a string as-is, anything else as JSON, at
+ *   most 8,192 UTF-8 bytes serialized) so a workflow node's `outputBindings`
+ *   still fill; without it, a generic "not executed" result.
+ */
+export type AgentToolSimulation =
+  | { mode: 'live' }
+  | { mode: 'mock'; response?: AgentToolSimulationJsonValue };
 
 // ─── Knowledge bases ─────────────────────────────────────────────────
 

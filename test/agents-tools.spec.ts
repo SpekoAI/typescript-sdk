@@ -196,6 +196,48 @@ describe('speko.agents.tools.update', () => {
   });
 });
 
+describe('agent tool simulation setting', () => {
+  it('sends a mock simulation with its canned response on create', async () => {
+    const created: AgentToolRow = {
+      ...rows[1],
+      simulation: { mode: 'mock', response: { question: 'What days can you start?' } },
+    };
+    const fetchMock = mockFetch(jsonResponse(created));
+    const speko = new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test' });
+    const row = await speko.agents.tools.create('agent_1', {
+      name: 'get_next_question',
+      description: 'Fetch the next interview question',
+      parameters: { type: 'object', properties: {} },
+      source: { kind: 'webhook', url: 'https://hooks.example.com/q', secret: 'whsec_12345678' },
+      simulation: { mode: 'mock', response: { question: 'What days can you start?' } },
+    });
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string).simulation).toEqual({
+      mode: 'mock',
+      response: { question: 'What days can you start?' },
+    });
+    expect(row.simulation).toEqual(created.simulation);
+  });
+
+  it('sends null on update to return the tool to the default policy', async () => {
+    const fetchMock = mockFetch(jsonResponse(rows[1]));
+    const speko = new Speko({ apiKey: 'sk_test', baseUrl: 'https://api.test' });
+    await speko.agents.tools.update('agent_1', 't_webhook', { simulation: null });
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toEqual({ simulation: null });
+  });
+
+  it('only accepts the live and mock shapes', () => {
+    // @ts-expect-error `live` carries no response.
+    const bad: AgentToolUpdateParams = { simulation: { mode: 'live', response: 'x' } };
+    // @ts-expect-error unknown mode.
+    const bad2: AgentToolUpdateParams = { simulation: { mode: 'skip' } };
+    expect([bad, bad2]).toHaveLength(2);
+  });
+});
+
 function mockFetch(response: Response) {
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response);
   vi.stubGlobal('fetch', fetchMock);
