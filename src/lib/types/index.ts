@@ -1648,6 +1648,35 @@ export interface CallReportWebhookDelivery {
   createdAt: string;
 }
 
+/**
+ * Machine detection and voicemail handling for a call — the `voicemail` block
+ * of the call report and the `call.report` webhook.
+ */
+export interface CallReportVoicemail {
+  /** A recordable mailbox was reached. */
+  detected: boolean;
+  /**
+   * Latest machine-detection verdict for the line (`human`, `machine-vm`,
+   * `machine-ivr`, `machine-unavailable`, `unknown`); `null` when detection
+   * did not run.
+   */
+  amd_verdict: string | null;
+  /**
+   * Result of `onMachine: 'leave_message'`. `call_ended`: the far end hung up
+   * while the message played. `not_attempted`: the call ended before the
+   * message started (during the greeting). `null` when no message was owed.
+   */
+  delivery:
+    | 'delivered'
+    | 'missing_message'
+    | 'greeting_timeout'
+    | 'playout_failed'
+    | 'call_ended'
+    | 'not_attempted'
+    | (string & {})
+    | null;
+}
+
 export interface CallReport {
   session_id: string;
   organization_id: string;
@@ -1665,6 +1694,8 @@ export interface CallReport {
   artifacts: Record<string, unknown>;
   metadata: Record<string, unknown>;
   scheduled_callback: ScheduledCallback | Record<string, unknown> | null;
+  /** `null` on reports finalized before this field existed. */
+  voicemail?: CallReportVoicemail | null;
   analysis_status: 'heuristic' | 'completed' | 'failed';
   analysis_provider: string | null;
   analysis_model: string | null;

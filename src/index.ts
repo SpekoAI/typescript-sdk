@@ -47,6 +47,7 @@ export type {
   CallEvent,
   CallRecording,
   CallReport,
+  CallReportVoicemail,
   CallReportWebhookDelivery,
   CallTranscriptEntry,
   CallTransfer,
