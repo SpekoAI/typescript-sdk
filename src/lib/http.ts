@@ -222,7 +222,7 @@ export class HttpClient {
     externalSignal?: AbortSignal,
   ): Promise<AsyncIterableIterator<{ event: string; id?: string; data: unknown }>> {
     const url = `${this.baseUrl}${path}`;
-    const { signal, cleanup } = this.buildSignal(externalSignal);
+    const { signal, cleanup, armTimer, clearTimer } = this.buildSignal(externalSignal);
 
     const response = await fetch(url, {
       method,
@@ -245,7 +245,11 @@ export class HttpClient {
       throw new SpekoApiError('Response body is empty', response.status, 'EMPTY_BODY');
     }
 
-    return this.readSseBody(response.body, cleanup);
+    // A transcript stream lasts as long as the audio and the caller's reads, so
+    // past the headers the client timeout becomes an idle timeout: it runs only
+    // while waiting for the next chunk. The caller's signal still cancels it.
+    clearTimer();
+    return this.readSseBody(response.body, cleanup, armTimer, clearTimer);
   }
 
   async requestBinaryStream(
@@ -256,7 +260,7 @@ export class HttpClient {
     extraHeaders?: Record<string, string>,
   ): Promise<{ chunks: AsyncIterableIterator<Uint8Array>; headers: Record<string, string> }> {
     const url = `${this.baseUrl}${path}`;
-    const { signal, cleanup } = this.buildSignal(externalSignal);
+    const { signal, cleanup, armTimer, clearTimer } = this.buildSignal(externalSignal);
 
     const response = await fetch(url, {
       method,
@@ -275,6 +279,9 @@ export class HttpClient {
       throw new SpekoApiError('Response body is empty', response.status, 'EMPTY_BODY');
     }
 
+    // Same as requestRawSse: audio streams outlive the client timeout, which
+    // bounds each wait for a chunk instead.
+    clearTimer();
     const headers: Record<string, string> = {};
     response.headers.forEach((value, key) => {
       headers[key] = value;
@@ -282,13 +289,15 @@ export class HttpClient {
 
     return {
       headers,
-      chunks: this.readBinaryBody(response.body, cleanup),
+      chunks: this.readBinaryBody(response.body, cleanup, armTimer, clearTimer),
     };
   }
 
   private async *readSseBody(
     body: ReadableStream<Uint8Array>,
     cleanup: () => void,
+    armTimer: () => void,
+    clearTimer: () => void,
   ): AsyncIterableIterator<{ event: string; id?: string; data: unknown }> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
@@ -296,7 +305,7 @@ export class HttpClient {
 
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readIdle(reader, armTimer, clearTimer);
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         const events = drainSseEvents(buffer);
@@ -320,11 +329,13 @@ export class HttpClient {
   private async *readBinaryBody(
     body: ReadableStream<Uint8Array>,
     cleanup: () => void,
+    armTimer: () => void,
+    clearTimer: () => void,
   ): AsyncIterableIterator<Uint8Array> {
     const reader = body.getReader();
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readIdle(reader, armTimer, clearTimer);
         if (done) break;
         yield value;
       }
@@ -338,6 +349,10 @@ export class HttpClient {
    * Compose the internal timeout signal with an optional external signal so
    * that callers can cancel in-flight requests (e.g. LiveKit Agents tearing
    * down a session) while still enforcing the client's configured timeout.
+   *
+   * `clearTimer` stops the timeout without detaching the caller's signal, and
+   * `armTimer` restarts it for a fresh `timeout` window. The streaming methods
+   * use the pair to turn the timeout into an idle timeout once headers arrive.
    */
   private buildSignal(
     externalSignal?: AbortSignal,
@@ -345,11 +360,21 @@ export class HttpClient {
   ): {
     signal: AbortSignal;
     cleanup: () => void;
+    armTimer: () => void;
+    clearTimer: () => void;
   } {
     const controller = new AbortController();
     const effectiveTimeout = timeoutMs ?? this.timeout;
-    const timer =
-      effectiveTimeout > 0 ? setTimeout(() => controller.abort(), effectiveTimeout) : null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const clearTimer = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    };
+    const armTimer = () => {
+      clearTimer();
+      if (effectiveTimeout > 0) timer = setTimeout(() => controller.abort(), effectiveTimeout);
+    };
+    armTimer();
 
     if (externalSignal) {
       if (externalSignal.aborted) {
@@ -360,18 +385,20 @@ export class HttpClient {
         return {
           signal: controller.signal,
           cleanup: () => {
-            if (timer) clearTimeout(timer);
+            clearTimer();
             externalSignal.removeEventListener('abort', onAbort);
           },
+          armTimer,
+          clearTimer,
         };
       }
     }
 
     return {
       signal: controller.signal,
-      cleanup: () => {
-        if (timer) clearTimeout(timer);
-      },
+      cleanup: clearTimer,
+      armTimer,
+      clearTimer,
     };
   }
 
@@ -399,6 +426,23 @@ export class HttpClient {
     }
 
     throw new SpekoApiError(message, response.status, code);
+  }
+}
+
+/**
+ * Read one chunk with the timeout running only for the wait itself, so a
+ * stalled server is cut off while a caller that reads slowly is not.
+ */
+async function readIdle(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  armTimer: () => void,
+  clearTimer: () => void,
+): ReturnType<ReadableStreamDefaultReader<Uint8Array>['read']> {
+  armTimer();
+  try {
+    return await reader.read();
+  } finally {
+    clearTimer();
   }
 }
 
