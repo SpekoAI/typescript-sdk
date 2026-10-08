@@ -1,3 +1,14 @@
+## 0.5.4
+
+### Features
+
+- Usage summaries carry the cost split: `minutesCost` (the per-minute call rate), `addOnCost` (telephony, speech-to-speech backend tokens, phone numbers) and `minutesBilledSeconds`. Each `UsageByProvider` row has a `chargeKind`: `minutes`, `add_on`, `included`, `free` or `byok`.
+
+### Fixes
+
+- `UsageByProvider.type` is optional and deprecated; the API never sends it.
+- Phone number docs quote the current $2/month price.
+
 ## 0.5.3
 
 ### Fixes
