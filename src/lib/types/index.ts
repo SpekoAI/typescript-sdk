@@ -22,11 +22,25 @@ export interface SpekoClientOptions {
 /** BYOK = customer key, no Speko charge. MANAGED = platform key, billed. */
 export type KeySource = 'BYOK' | 'MANAGED';
 
+/**
+ * How a usage line bills: the per-minute call rate, an add-on charged on top of
+ * it (telephony, speech-to-speech backend tokens, phone numbers), covered by
+ * the minute, absorbed by Speko (post-call summaries), or run on your own key.
+ */
+export type ChargeKind = 'minutes' | 'add_on' | 'included' | 'free' | 'byok';
+
 /** Usage record for a workspace. */
 export interface UsageSummary {
   totalSessions: number;
   totalMinutes: number;
+  /** `minutesCost + addOnCost`. */
   totalCost: number;
+  /** Cost of the per-minute call rate. */
+  minutesCost?: number;
+  /** Exact call seconds charged at the per-minute rate. */
+  minutesBilledSeconds?: number;
+  /** Cost of everything charged on top of the minute. */
+  addOnCost?: number;
   breakdown: UsageByProvider[];
   balanceUsd: number;
   currency: 'USD';
@@ -34,9 +48,11 @@ export interface UsageSummary {
 
 export interface UsageByProvider {
   provider: string;
-  type: 'stt' | 'llm' | 'tts';
+  /** @deprecated Never sent by the API; read `metric`. */
+  type?: 'stt' | 'llm' | 'tts';
   metric: string;
   keySource: KeySource;
+  chargeKind?: ChargeKind;
   quantity: number;
   cost: number;
 }

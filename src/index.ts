@@ -54,6 +54,7 @@ export type {
   CallTransferResponse,
   CancelScheduledCallbackParams,
   CancelWarmTransferParams,
+  ChargeKind,
   ChatMessage,
   ChatTool,
   ChatToolCall,

@@ -45,7 +45,7 @@ export class PhoneNumbers {
   /**
    * Search the platform-managed pool for orderable US numbers. Filter by area code
    * and/or locality. Results include cost so you can preview "$1 upfront +
-   * $1/month" before committing to {@link create}.
+   * $2/month" before committing to {@link create}.
    *
    * @example
    * ```ts
