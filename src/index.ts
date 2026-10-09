@@ -117,6 +117,8 @@ export type {
   ScheduledCallback,
   ScheduledCallbackStatus,
   ScheduledCallbacksListParams,
+  SendCallMessageParams,
+  SendCallMessageResult,
   SessionStreamEvent,
   SessionStreamOptions,
   SessionTranscript,

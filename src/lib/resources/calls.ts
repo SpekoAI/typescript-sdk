@@ -12,6 +12,8 @@ import type {
   EndCallResult,
   FinalizeCallReportParams,
   FinalizeCallReportResult,
+  SendCallMessageParams,
+  SendCallMessageResult,
   WarmTransferParams,
   WebJoinParams,
   WebJoinResult,
@@ -71,6 +73,20 @@ export class Calls {
    */
   end(callId: string): Promise<EndCallResult> {
     return this.http.post<EndCallResult>(`/v1/calls/${encodeURIComponent(callId)}/end`, {});
+  }
+
+  /**
+   * Push an update from your backend into a live call — for results that
+   * finish after the tool call that started them returned. In `respond` mode
+   * (default) the agent tells the caller at the next gap in the conversation;
+   * in `context` mode it only adds the text to the agent's context. A `409`
+   * means the call is no longer live.
+   */
+  sendMessage(callId: string, params: SendCallMessageParams): Promise<SendCallMessageResult> {
+    return this.http.post<SendCallMessageResult>(
+      `/v1/calls/${encodeURIComponent(callId)}/messages`,
+      params,
+    );
   }
 
   blindTransfer(callId: string, params: BlindTransferParams): Promise<CallTransfer> {

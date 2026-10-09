@@ -1818,6 +1818,25 @@ export interface EndCallResult {
   ended_at?: string;
 }
 
+export interface SendCallMessageParams {
+  /** The update for the caller, 1–4000 characters. */
+  text: string;
+  /**
+   * `respond` (default): the agent tells the caller at the next gap in the
+   * conversation, in its own words. `context`: added to the agent's context
+   * only; nothing is spoken.
+   */
+  mode?: 'respond' | 'context';
+}
+
+export interface SendCallMessageResult {
+  ok: true;
+  /** The message was published to the live call. */
+  status: 'sent';
+  message_id: string;
+  mode: 'respond' | 'context';
+}
+
 export interface CallEvent {
   id: string;
   session_id: string | null;
