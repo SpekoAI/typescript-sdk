@@ -1,0 +1,16 @@
+{
+  "name": "@spekoai-examples/quickstart-node",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "biome ci .",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@spekoai/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.2"
+  }
+}
