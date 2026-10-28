@@ -739,6 +739,14 @@ export interface VoiceDialParams {
      */
     onMachine?: 'hangup' | 'leave_message' | 'agent_decides' | 'continue';
     /**
+     * What happens when a live PERSON answers an outbound call. `hangup` mutes
+     * the agent from pickup, sends no opening line and hangs up without a word
+     * on a person (`endReason: 'human_answered'`); a machine is unmuted and
+     * `onMachine` applies. `continue` (default) is a normal call. Realtime
+     * (`runMode: 's2s'`) phone calls only.
+     */
+    onHuman?: 'hangup' | 'continue';
+    /**
      * Spoken once into the mailbox under `onMachine: 'leave_message'`. Renders the same `{{variables}}` as `firstMessage`. Max 2,000 characters.
      * On a Realtime (GPT-Live) call the voice model says it in its own words,
      * after shortening it to fit the model's instruction limit (about 1,200
@@ -1680,6 +1688,12 @@ export interface AgentTurnHandling {
    * `leave_message` is spoken in the voice model's own words.
    */
   onMachine?: 'hangup' | 'leave_message' | 'agent_decides' | 'continue';
+  /**
+   * What happens when a live person answers an outbound call — see the
+   * per-call `turnHandling.onHuman` on {@link VoiceDialParams}. Realtime
+   * (`runMode: 's2s'`) phone calls only.
+   */
+  onHuman?: 'hangup' | 'continue';
   /**
    * Spoken once into the mailbox under `onMachine: 'leave_message'`. On a
    * Realtime (GPT-Live) call the voice model says it in its own words, after
