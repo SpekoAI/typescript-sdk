@@ -1,3 +1,10 @@
+## 0.5.6
+
+### Fixes
+
+- `agents.list()` now returns `AgentListItem[]` instead of `AgentRow[]`. The API never sent `systemPrompt`, `promptVariables` or `extractionFields` in list entries, so those fields were always `undefined` at runtime. List entries carry `createdBy` instead. Read the full agent with `agents.get()`. `AgentListItem` and `AgentCreator` are exported.
+- When the server hosts a realtime session on LiveKit, the error from `realtime.connect()` now names the model the server resolved, for example `openai:gpt-live-1`.
+
 ## 0.5.5
 
 ### Fixes

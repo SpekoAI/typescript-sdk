@@ -1750,6 +1750,23 @@ export interface AgentRow {
   updatedAt: string;
 }
 
+export interface AgentCreator {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
+/**
+ * One entry of `agents.list()`. The list omits the system prompt, prompt
+ * variables and extraction fields; read them with `agents.get()`.
+ */
+export type AgentListItem = Omit<
+  AgentRow,
+  'systemPrompt' | 'promptVariables' | 'extractionFields'
+> & {
+  createdBy: AgentCreator | null;
+};
+
 export interface AgentCreateParams {
   name: string;
   systemPrompt: string;

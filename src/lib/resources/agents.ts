@@ -3,6 +3,7 @@ import type {
   AgentCallListPage,
   AgentCallListParams,
   AgentCreateParams,
+  AgentListItem,
   AgentRow,
   AgentToolCreateParams,
   AgentToolRow,
@@ -39,8 +40,8 @@ export class Agents {
     this.tools = new AgentTools(http);
   }
 
-  list(): Promise<AgentRow[]> {
-    return this.http.get<AgentRow[]>('/v1/agents');
+  list(): Promise<AgentListItem[]> {
+    return this.http.get<AgentListItem[]>('/v1/agents');
   }
 
   create(params: AgentCreateParams): Promise<AgentRow> {

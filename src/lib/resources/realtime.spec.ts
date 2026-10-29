@@ -301,6 +301,33 @@ describe('Realtime provider-direct transport', () => {
     expect(new Headers(telemetryCall[1]?.headers).get('user-agent')).toBe(USER_AGENT);
   });
 
+  it('names the resolved model when the server hosts the session on LiveKit', async () => {
+    const response = {
+      mode: 's2s',
+      transport: 'livekit',
+      sessionId: 'sess_lk',
+      provider: 'openai',
+      model: 'gpt-live-1',
+      transportToken: 'lk-token',
+      transportUrl: 'wss://livekit.test',
+      expiresAt: '2026-10-29T14:04:42.073Z',
+    };
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(Response.json(response)));
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    vi.stubGlobal('RTCPeerConnection', FakeRTCPeerConnection);
+    const realtime = new Realtime(
+      new HttpClient({ baseUrl: 'https://api.speko.test', apiKey: 'sk-customer', timeout: 5000 }),
+    );
+
+    await expect(
+      realtime.connect({ provider: 'openai', model: 'gpt-realtime-2.1' }),
+    ).rejects.toThrow(
+      'The server resolved this session to openai:gpt-live-1, which is hosted on LiveKit',
+    );
+    expect(FakeWebSocket.instances).toHaveLength(0);
+    expect(FakeRTCPeerConnection.instances).toHaveLength(0);
+  });
+
   it('connects directly to xAI with its short-lived client-secret subprotocol', async () => {
     const response = {
       ...bootstrapResponse(),
