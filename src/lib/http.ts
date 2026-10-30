@@ -419,12 +419,24 @@ export class HttpClient {
     }
 
     if (response.status === 429) {
-      const retryAfter = response.headers.get('Retry-After');
-      throw new SpekoRateLimitError(message, retryAfter ? parseInt(retryAfter, 10) : null);
+      throw new SpekoRateLimitError(message, parseRetryAfter(response.headers.get('Retry-After')));
     }
 
     throw new SpekoApiError(message, response.status, code);
   }
+}
+
+/**
+ * `Retry-After` as seconds to wait. RFC 9110 allows delay-seconds or an
+ * HTTP-date; anything else is treated as absent rather than becoming NaN.
+ */
+function parseRetryAfter(value: string | null): number | null {
+  if (value === null) return null;
+  const trimmed = value.trim();
+  if (/^\d+$/.test(trimmed)) return Number(trimmed);
+  const date = Date.parse(trimmed);
+  if (!Number.isFinite(date)) return null;
+  return Math.max(0, Math.ceil((date - Date.now()) / 1000));
 }
 
 function drainSseEvents(buffer: string): {

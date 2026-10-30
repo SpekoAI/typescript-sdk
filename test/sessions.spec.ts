@@ -46,7 +46,9 @@ function callEvent(id: string, createdMs: number) {
 }
 
 /** Serve each scripted body once, recording the URLs fetch was called with. */
-function stubFetch(bodies: Array<string | { status: number; body: string }>) {
+function stubFetch(
+  bodies: Array<string | { status: number; body: string; headers?: Record<string, string> }>,
+) {
   const urls: string[] = [];
   const queue = [...bodies];
   vi.stubGlobal(
@@ -63,7 +65,7 @@ function stubFetch(bodies: Array<string | { status: number; body: string }>) {
       }
       return new Response(next.body, {
         status: next.status,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...next.headers },
       });
     }),
   );
@@ -83,6 +85,7 @@ async function collect(iter: AsyncIterableIterator<SessionStreamEvent>) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -207,6 +210,60 @@ describe('sessions.stream', () => {
     await expect(collect(makeSessions().stream('sess_missing'))).rejects.toMatchObject({
       status: 404,
     });
+    expect(urls).toHaveLength(1);
+  });
+
+  it('reconnects through a 429 after the Retry-After delay', async () => {
+    vi.useFakeTimers();
+    const urls = stubFetch([
+      sse(
+        { event: 'transcript', data: turn(0, 'before') },
+        { event: 'end', data: { reason: 'timeout' } },
+      ),
+      {
+        status: 429,
+        body: JSON.stringify({ error: 'Too many requests', code: 'RATE_LIMITED' }),
+        headers: { 'Retry-After': '3' },
+      },
+      sse(
+        { event: 'transcript', data: turn(1, 'after') },
+        { event: 'end', data: { reason: 'session_ended' } },
+      ),
+    ]);
+
+    const done = collect(makeSessions().stream('sess_1'));
+    // Rotation backoff, then the rate-limited reconnect.
+    await vi.advanceTimersByTimeAsync(500);
+    expect(urls).toHaveLength(2);
+    // The usual 500 ms backoff is not enough: the server asked for 3 s.
+    await vi.advanceTimersByTimeAsync(2_900);
+    expect(urls).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(100);
+
+    const events = await done;
+    expect(urls).toHaveLength(3);
+    expect(urls[2]).toContain('cursor=0:0');
+    expect(events.filter((e) => e.type === 'transcript')).toHaveLength(2);
+    expect(events.at(-1)).toEqual({ type: 'end', reason: 'session_ended' });
+  });
+
+  it('returns promptly when aborted while waiting out a Retry-After', async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const urls = stubFetch([
+      {
+        status: 429,
+        body: JSON.stringify({ error: 'Too many requests', code: 'RATE_LIMITED' }),
+        headers: { 'Retry-After': '60' },
+      },
+    ]);
+
+    const done = collect(makeSessions().stream('sess_1', { signal: controller.signal }));
+    await vi.advanceTimersByTimeAsync(1_000);
+    controller.abort();
+    await vi.advanceTimersByTimeAsync(0);
+
+    await expect(done).resolves.toEqual([]);
     expect(urls).toHaveLength(1);
   });
 

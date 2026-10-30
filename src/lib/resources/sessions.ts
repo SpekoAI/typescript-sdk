@@ -1,4 +1,4 @@
-import { SpekoApiError } from '../errors.js';
+import { SpekoApiError, SpekoRateLimitError } from '../errors.js';
 import type { HttpClient } from '../http.js';
 import type {
   CallEvent,
@@ -56,6 +56,8 @@ export class Sessions {
    * pushed as they happen (SSE under the hood). Iterate until `end` — the
    * SDK reconnects through server stream rotations and transient drops with
    * an internal cursor, so consumers never poll and never see duplicates.
+   * A 429 is retried too, after the server's `Retry-After`; other 4xx
+   * responses (bad key, unknown session) are thrown.
    *
    * ```ts
    * for await (const ev of speko.sessions.stream(sessionId)) {
@@ -113,6 +115,7 @@ export class Sessions {
     while (true) {
       if (options.signal?.aborted) return;
       let receivedFrame = false;
+      let retryAfterMs = 0;
       try {
         const path =
           `/v1/sessions/${encodeURIComponent(sessionId)}/stream` +
@@ -166,8 +169,12 @@ export class Sessions {
         }
       } catch (err) {
         if (options.signal?.aborted) return;
-        // Auth failures and unknown sessions are not transient — surface them.
-        if (err instanceof SpekoApiError && err.status >= 400 && err.status < 500) {
+        if (err instanceof SpekoRateLimitError) {
+          // Rate limiting is transient: wait as long as the server asked,
+          // then reconnect. It still counts toward MAX_RECONNECT_ATTEMPTS.
+          retryAfterMs = (err.retryAfter ?? 0) * 1000;
+        } else if (err instanceof SpekoApiError && err.status >= 400 && err.status < 500) {
+          // Auth failures and unknown sessions are not transient, so surface them.
           throw err;
         }
         // Anything else (network drop, mid-stream abort) → reconnect below.
@@ -183,9 +190,24 @@ export class Sessions {
           );
         }
       }
-      await new Promise((resolve) =>
-        setTimeout(resolve, Math.min(500 * Math.max(failedAttempts, 1), 5000)),
-      );
+      const backoffMs = Math.min(500 * Math.max(failedAttempts, 1), 5000);
+      await sleep(Math.max(backoffMs, retryAfterMs), options.signal);
     }
   }
+}
+
+/** Resolves after `ms`, or as soon as `signal` aborts. */
+function sleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
