@@ -906,6 +906,11 @@ export interface PhoneNumberRow {
   callerNameUpdatedAt?: string | null;
   /** Whether a caller name can be set: US local numbers bought through Speko. */
   callerNameSupported?: boolean;
+  /**
+   * What a caller hears when this number takes a voicemail; null when the
+   * number uses the workspace's greeting, or the built-in one.
+   */
+  voicemailGreeting?: string | null;
   sms10dlcProfileId: string | null;
   smsCampaignId: string | null;
   smsAssignmentStatus: PhoneNumberSmsAssignmentStatus | null;
@@ -997,6 +1002,12 @@ export interface PhoneNumberUpdateParams {
    * an empty string removes it. Carriers pick it up within about 72 hours.
    */
   callerName?: string | null;
+  /**
+   * What a caller hears when this number takes a voicemail, at most 500
+   * characters once spaces and line breaks are collapsed. `null` or an empty
+   * string removes it, so the number uses the workspace's greeting.
+   */
+  voicemailGreeting?: string | null;
 }
 
 export interface AvailablePhoneNumber {
