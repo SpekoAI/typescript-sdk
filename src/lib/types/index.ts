@@ -755,6 +755,13 @@ export interface VoiceDialParams {
      */
     voicemailMessage?: string;
     /**
+     * An uploaded sound (`/v1/sounds`) played once, verbatim, into the mailbox
+     * under `onMachine: 'leave_message'` instead of speaking `voicemailMessage`
+     * (no model speech, on Realtime calls too). `voicemailMessage` is spoken
+     * instead if the file can't be fetched at call time.
+     */
+    voicemailSoundId?: string;
+    /**
      * How long, in whole seconds (60-7200), a phone menu or hold queue may keep
      * the line with nobody on it saying anything conversational before the
      * call ends. Defaults to 600 (10 minutes); overrides the agent's value for
@@ -1713,6 +1720,13 @@ export interface AgentTurnHandling {
    * boundary where one exists.
    */
   voicemailMessage?: string;
+  /**
+   * An uploaded sound (`/v1/sounds`) played once, verbatim, into the mailbox
+   * under `onMachine: 'leave_message'` instead of speaking `voicemailMessage`
+   * (no model speech, on Realtime calls too). `voicemailMessage` is spoken
+   * instead if the file can't be fetched at call time.
+   */
+  voicemailSoundId?: string;
   /**
    * How long, in whole seconds (60-7200), a phone menu or hold queue may keep
    * the line with nobody on it saying anything conversational before the call
