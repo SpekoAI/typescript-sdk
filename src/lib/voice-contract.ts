@@ -355,6 +355,10 @@ export const VOICE_ERROR_CODES = {
   noBrokerAvailable: 'NO_BROKER_AVAILABLE',
   /** The number is in a sanctioned country or region; nothing was dialed. */
   destinationNotAllowed: 'DESTINATION_NOT_ALLOWED',
+  /** The balance does not cover the transfer leg on Speko's carrier; nothing was dialed. */
+  insufficientCredits: 'INSUFFICIENT_CREDITS',
+  /** The destination needs the workspace to have topped up once; nothing was dialed. */
+  destinationRequiresCard: 'DESTINATION_REQUIRES_CARD',
 } as const;
 
 export type VoiceErrorCode = (typeof VOICE_ERROR_CODES)[keyof typeof VOICE_ERROR_CODES];
