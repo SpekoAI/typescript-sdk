@@ -837,6 +837,14 @@ export interface SessionTranscriptEntry {
   conversationalLatencyMs: number | null;
   /** Tool calls the agent made on this turn (empty when none). */
   toolCalls: { name: string; args: string }[];
+  /**
+   * Who spoke a caller turn, when the session ran with
+   * `sttOptions.diarization`: `S1`, `S2`, … in the order the voices were first
+   * heard. Null on agent/system turns and on sessions without the option.
+   */
+  speaker?: string | null;
+  /** The turn split by voice, when it holds more than one (empty otherwise). */
+  speakerSegments?: { speaker: string; text: string }[];
 }
 
 export interface SessionTranscript {
