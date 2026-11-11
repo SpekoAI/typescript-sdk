@@ -16,7 +16,7 @@ interface RequestSignal {
   cleanup: () => void;
 }
 
-export const USER_AGENT = '@spekoai/sdk/0.5.6';
+export const USER_AGENT = '@spekoai/sdk/0.5.7';
 
 export class HttpClient {
   private readonly baseUrl: string;

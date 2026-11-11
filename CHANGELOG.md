@@ -1,3 +1,9 @@
+## 0.5.7
+
+### Features
+
+- `calls.listen(callId)` mints a receive-only credential for one live call. Pass `token` and `url` to `CallListener` from `@spekoai/client` to play the call in a browser. The token cannot publish audio or data, and the server accepts it for 60 seconds. `CallListenCredentials` is exported.
+
 ## 0.5.6
 
 ### Fixes

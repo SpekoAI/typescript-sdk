@@ -2052,6 +2052,13 @@ export interface WebJoinResult {
   expiresAt: string;
 }
 
+/**
+ * What `calls.listen()` returns: a receive-only credential for one live call.
+ * `identity` starts with `listen-`. `expiresAt` is 60 seconds after the mint
+ * and limits new connections only, so a connected listener stays connected.
+ */
+export type CallListenCredentials = CallJoinCredentials;
+
 export interface EndCallResult {
   ok: true;
   /** `ending` when teardown was requested; `already_ended` when the call was over. */

@@ -47,6 +47,7 @@ export type {
   CallCostLine,
   CallDetail,
   CallEvent,
+  CallListenCredentials,
   CallRecording,
   CallReport,
   CallReportVoicemail,

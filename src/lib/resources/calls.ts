@@ -3,6 +3,7 @@ import type {
   BlindTransferParams,
   CallDetail,
   CallEvent,
+  CallListenCredentials,
   CallRecording,
   CallReport,
   CallTransfer,
@@ -63,6 +64,30 @@ export class Calls {
     return this.http.post<WebJoinResult>(
       `/v1/calls/${encodeURIComponent(callId)}/web-join`,
       params,
+    );
+  }
+
+  /**
+   * Mint a credential that lets one browser hear THIS live call without
+   * taking part in it. Pass `token` and `url` to `@spekoai/client`'s
+   * `CallListener.connect({ url, token })`.
+   *
+   * The token can only join the call and receive its audio. It cannot publish
+   * audio or data, the people on the call cannot see the listener, and the
+   * agent keeps talking (unlike `webJoin`, which mutes it). The token is
+   * accepted for 60 seconds, so mint one per click on your backend and never
+   * store it. The server removes every listener when the call ends.
+   *
+   * `callId` is the same id `sessions.*` accepts. Rejects with a
+   * `SpekoApiError` whose `code` is `NOT_FOUND` (404), `CALL_NOT_LIVE` (409,
+   * the call ended), `LISTEN_NOT_SUPPORTED` (409, this call type has no audio
+   * to join), `LISTENER_LIMIT_REACHED` (409, five listeners per call) or
+   * `LISTEN_DISABLED` (503).
+   */
+  listen(callId: string): Promise<CallListenCredentials> {
+    return this.http.post<CallListenCredentials>(
+      `/v1/calls/${encodeURIComponent(callId)}/listen`,
+      {},
     );
   }
 

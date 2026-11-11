@@ -164,6 +164,21 @@ Errors carry stable codes on `SpekoApiError.code`, exported as
 > `speko.voice.dial(...)` is a different thing and is unchanged: it dials an
 > **AI agent** out over the same telephony gateway.
 
+## Listen to a live call
+
+`speko.calls.listen(callId)` mints a receive-only credential for one live call.
+Call it on your backend when a user clicks play, then pass `token` and `url` to
+`CallListener` from `@spekoai/client` in the browser.
+
+```ts
+const { token, url } = await speko.calls.listen(sessionId);
+```
+
+The token can join the call and receive its audio. It cannot publish audio or
+data, and nobody on the call can see the listener. The token is accepted for 60
+seconds, and a call takes five listeners at most. See the
+[Listen to live calls guide](https://docs.speko.dev/guides/listen-to-live-calls).
+
 ## Documentation
 
 Full API reference and guides: <https://docs.speko.dev>
