@@ -359,6 +359,11 @@ export const VOICE_ERROR_CODES = {
   insufficientCredits: 'INSUFFICIENT_CREDITS',
   /** The destination needs the workspace to have topped up once; nothing was dialed. */
   destinationRequiresCard: 'DESTINATION_REQUIRES_CARD',
+  /**
+   * The workspace used its daily allowance for transfers outside the US and
+   * Canada or to premium-rate numbers; nothing was dialed.
+   */
+  transferDailyLimit: 'TRANSFER_DAILY_LIMIT_REACHED',
 } as const;
 
 export type VoiceErrorCode = (typeof VOICE_ERROR_CODES)[keyof typeof VOICE_ERROR_CODES];
