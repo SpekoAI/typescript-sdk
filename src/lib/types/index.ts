@@ -849,6 +849,16 @@ export interface SessionTranscriptEntry {
 
 export interface SessionTranscript {
   entries: SessionTranscriptEntry[];
+  /**
+   * `false` when the workspace keeps no transcripts (Settings → Workspace →
+   * Store transcripts): entries are returned only while the call is live and
+   * are empty once it ends. Absent on older servers.
+   */
+  transcriptStored?: boolean;
+  /** True when the workspace's transcript retention period removed this call's words. */
+  transcriptExpired?: boolean;
+  /** Each turn's timing and latency with no text, when no transcript is kept. */
+  timings?: SessionTranscriptEntry[];
 }
 
 /**
