@@ -1375,6 +1375,7 @@ export interface AgentWebhookAuthHeader {
 }
 
 export interface AgentLifecycleWebhookCreate {
+  /** Must use `https://`; a plain `http://` URL is refused with a 400. */
   url: string;
   /**
    * Optional per-webhook signing secret. When supplied, this endpoint signs
@@ -1392,6 +1393,7 @@ export interface AgentLifecycleWebhookCreate {
 }
 
 export interface AgentLifecycleWebhookUpdate {
+  /** Must use `https://`; a plain `http://` URL is refused with a 400. */
   url: string;
   /**
    * Optional per-webhook signing secret. Supply to set/rotate a per-webhook
@@ -1546,6 +1548,7 @@ export interface WebhookEndpointAuthHeaderUpdate {
 
 export interface WebhookEndpointInput {
   name: string;
+  /** Must use `https://`; a plain `http://` URL is refused with a 400. */
   url: string;
   events: WorkspaceWebhookEventType[];
   /** Defaults to true. When false, agentIds must contain at least one agent. */
@@ -2304,6 +2307,11 @@ export type AgentToolWebhookBody = Record<string, unknown> | unknown[];
  */
 export interface AgentToolSourceWebhookCreate {
   kind: 'webhook';
+  /**
+   * Must use `https://`; a plain `http://` URL is refused with a 400. A
+   * `{{name}}` placeholder may supply the scheme (`{{base_url}}/x`); the
+   * substituted URL is checked per call and an http one is never sent.
+   */
   url: string;
   /** Plaintext shared secret. Encrypted server-side at write time. */
   secret: string;
@@ -2363,6 +2371,11 @@ export interface AgentToolSourceIntegration {
  */
 export interface AgentToolSourceWebhookUpdate {
   kind: 'webhook';
+  /**
+   * Must use `https://`; a plain `http://` URL is refused with a 400. A
+   * `{{name}}` placeholder may supply the scheme (`{{base_url}}/x`); the
+   * substituted URL is checked per call and an http one is never sent.
+   */
   url: string;
   /** Plaintext shared secret. Omit to keep the existing stored secret; supply to rotate. */
   secret?: string;
