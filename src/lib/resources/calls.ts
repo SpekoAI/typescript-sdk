@@ -50,15 +50,16 @@ export class Calls {
   }
 
   /**
-   * Browser bridge-in: mint a short-lived token that joins THIS live call's
-   * room from a web client (pass `token`/`url` to `@spekoai/client`'s
-   * `VoiceConversation.create({ transportToken, transportUrl })`). Once the
-   * browser publishes audio the platform bridges it to the phone leg and
-   * mutes the agent; when the browser leaves, the agent resumes.
+   * Take a live call over from the browser: mint a short-lived token for
+   * `CallTakeover.connect({ url, token })` from `@spekoai/client`. Once the
+   * browser's microphone reaches the call, the caller hears it and the agent
+   * goes silent; when the browser leaves, the agent takes the call back.
    *
-   * Mint at click time — the token is short-TTL and a `409` means the call
-   * is no longer live. Concurrent/repeat joins are allowed (rejoin after a
-   * drop just calls this again).
+   * Mint at click time; the token is accepted for 60 seconds. Rejects with a
+   * `SpekoApiError` whose `code` is `CALL_NOT_LIVE` (409), `CALL_NOT_ANSWERED`
+   * (409, an outbound call still ringing), `WEB_JOIN_UNSUPPORTED` (409, no
+   * LiveKit room, e.g. a Pipecat call) or `RATE_LIMITED` (429: 10 a minute for
+   * a call, 60 for the organization). Rejoining after a drop calls this again.
    */
   webJoin(callId: string, params: WebJoinParams = {}): Promise<WebJoinResult> {
     return this.http.post<WebJoinResult>(
