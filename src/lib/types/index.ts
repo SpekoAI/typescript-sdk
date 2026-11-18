@@ -2090,15 +2090,25 @@ export interface EndCallResult {
   ended_at?: string;
 }
 
+/**
+ * `respond`: the agent tells the caller at the next gap in the conversation.
+ * `context`: added to the agent's context only. `instruct`: a supervisor's
+ * instruction the agent follows for the rest of the call.
+ */
+export type CallMessageMode = 'respond' | 'context' | 'instruct';
+
 export interface SendCallMessageParams {
-  /** The update for the caller, 1–4000 characters. */
+  /** 1–4000 characters; an `instruct` message is at most 1000. */
   text: string;
   /**
    * `respond` (default): the agent tells the caller at the next gap in the
    * conversation, in its own words. `context`: added to the agent's context
-   * only; nothing is spoken.
+   * only; nothing is spoken. `instruct`: steer the agent. It follows the
+   * instruction from its next reply until the call ends, never speaks it and
+   * never mentions it; a later instruction wins where two conflict. A call
+   * keeps at most 20 instructions.
    */
-  mode?: 'respond' | 'context';
+  mode?: CallMessageMode;
 }
 
 export interface SendCallMessageResult {
@@ -2106,7 +2116,7 @@ export interface SendCallMessageResult {
   /** The message was published to the live call. */
   status: 'sent';
   message_id: string;
-  mode: 'respond' | 'context';
+  mode: CallMessageMode;
 }
 
 export interface CallEvent {

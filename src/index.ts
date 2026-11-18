@@ -48,6 +48,7 @@ export type {
   CallDetail,
   CallEvent,
   CallListenCredentials,
+  CallMessageMode,
   CallRecording,
   CallReport,
   CallReportVoicemail,

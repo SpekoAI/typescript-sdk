@@ -1,3 +1,9 @@
+## 0.5.9
+
+### Features
+
+- `calls.sendMessage()` takes `mode: 'instruct'` to steer the agent on a live call. The agent follows the instruction from its next reply until the call ends, never speaks it and never mentions it. A later instruction wins where two conflict. An instruction is at most 1000 characters, and a call keeps at most 20. `CallMessageMode` is exported.
+
 ## 0.5.8
 
 ### Features
