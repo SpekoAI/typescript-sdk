@@ -15,6 +15,7 @@ import { Usage } from './resources/usage.js';
 import { CallControl, Voice } from './resources/voice.js';
 import { Voices } from './resources/voices.js';
 import { Webhooks } from './resources/webhooks.js';
+import { WhatsApp } from './resources/whatsapp.js';
 import type {
   CompleteParams,
   CompleteResult,
@@ -66,6 +67,7 @@ export class Speko {
   readonly sessions: Sessions;
   readonly webhooks: Webhooks;
   readonly sms: Sms;
+  readonly whatsapp: WhatsApp;
 
   private readonly transcribeResource: Transcribe;
   private readonly synthesizeResource: Synthesize;
@@ -103,6 +105,7 @@ export class Speko {
     this.sessions = new Sessions(http);
     this.webhooks = new Webhooks(http);
     this.sms = new Sms(http);
+    this.whatsapp = new WhatsApp(http);
     this.transcribeResource = new Transcribe(http);
     this.synthesizeResource = new Synthesize(http);
     this.completeResource = new Complete(http);

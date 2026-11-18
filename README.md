@@ -179,6 +179,28 @@ data, and nobody on the call can see the listener. The token is accepted for 60
 seconds, and a call takes five listeners at most. See the
 [Listen to live calls guide](https://docs.speko.dev/guides/listen-to-live-calls).
 
+## WhatsApp calls through your own Meta app
+
+`speko.whatsapp.connect(...)` connects a WhatsApp Business number through your
+own Meta app, so an agent answers WhatsApp calls to it. Speko reads the number
+from Meta with the token, then stores the token and app secret encrypted. It
+never returns them.
+
+```ts
+const { webhookUrl, verifyToken } = await speko.whatsapp.connect({
+  accessToken: process.env.META_SYSTEM_USER_TOKEN!,
+  appSecret: process.env.META_APP_SECRET!,
+  phoneNumberId: '123456789012345',
+  agentId: 'agent_123',
+});
+```
+
+Set `webhookUrl` and `verifyToken` on your Meta app's WhatsApp webhook and
+subscribe it to the `calls` field. `speko.whatsapp.listNumbers()` shows both
+again, `updateNumber(id, { agentId })` changes the agent, and
+`disconnect(connectionId)` deletes the stored secrets. See the
+[WhatsApp guide](https://docs.speko.dev/whatsapp).
+
 ## Documentation
 
 Full API reference and guides: <https://docs.speko.dev>

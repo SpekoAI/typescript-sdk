@@ -186,6 +186,13 @@ export type {
   WebhookEventType,
   WebJoinParams,
   WebJoinResult,
+  WhatsAppCallingStatus,
+  WhatsAppConnection,
+  WhatsAppConnectParams,
+  WhatsAppDisconnectResult,
+  WhatsAppNumber,
+  WhatsAppNumberConnection,
+  WhatsAppNumberUpdateParams,
   WorkspaceWebhookEventType,
 } from './lib/types/index.js';
 export type {

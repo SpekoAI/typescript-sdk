@@ -1,3 +1,9 @@
+## 0.5.8
+
+### Features
+
+- `whatsapp` connects a WhatsApp Business number through your own Meta app, so an agent answers WhatsApp calls to it. `connect()` takes the access token, the app secret and the phone number ID, and returns the webhook URL and verify token for your Meta app. Speko stores the token and app secret encrypted and never returns them. `listNumbers()`, `updateNumber()` and `disconnect()` cover the rest. `WhatsAppConnection`, `WhatsAppNumber` and their params types are exported.
+
 ## 0.5.7
 
 ### Features

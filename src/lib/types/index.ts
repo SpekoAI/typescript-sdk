@@ -2953,3 +2953,68 @@ export interface SmsStreamEvent {
   readonly status: SmsMessageStatus;
   readonly occurred_at: string;
 }
+
+/** Whether Meta lets a WhatsApp number take calls. `unknown` when Meta could not be read. */
+export type WhatsAppCallingStatus = 'enabled' | 'disabled' | 'unknown';
+
+/**
+ * How a WhatsApp number reaches Speko. `customer_app` is your own Meta app and
+ * carries the settings its WhatsApp webhook needs; `platform` is Speko's app.
+ */
+export type WhatsAppNumberConnection =
+  | { id: string; kind: 'platform' }
+  | { id: string; kind: 'customer_app'; webhookUrl: string; verifyToken: string };
+
+export interface WhatsAppNumber {
+  id: string;
+  /** Meta's phone number ID. */
+  phoneNumberId: string;
+  e164: string;
+  displayName: string | null;
+  /** The agent that answers calls to the number; `null` when none does. */
+  agentId: string | null;
+  callingStatus: WhatsAppCallingStatus;
+  callingStatusCheckedAt: string | null;
+  connection: WhatsAppNumberConnection;
+  createdAt: string;
+}
+
+export interface WhatsAppConnectParams {
+  /**
+   * Meta system user access token with the `whatsapp_business_management` and
+   * `whatsapp_business_messaging` permissions. Stored encrypted, never returned.
+   */
+  accessToken: string;
+  /** App secret of the Meta app that receives your `calls` webhooks. Stored encrypted, never returned. */
+  appSecret: string;
+  /** Meta's numeric phone number ID, not the phone number. */
+  phoneNumberId: string;
+  /** The agent that answers calls. Omit or `null` to connect without one. */
+  agentId?: string | null;
+}
+
+export interface WhatsAppConnection {
+  /** Connection id; pass it to `disconnect`. */
+  id: string;
+  /** Callback URL for your Meta app's WhatsApp webhook. */
+  webhookUrl: string;
+  /** Verify token for your Meta app's WhatsApp webhook. */
+  verifyToken: string;
+  number: WhatsAppNumber;
+}
+
+export interface WhatsAppNumberUpdateParams {
+  /** The agent that answers calls to the number, or `null` to stop answering. */
+  agentId: string | null;
+}
+
+export interface WhatsAppDisconnectResult {
+  id: string;
+  revokedAt: string;
+  /**
+   * Calls in progress Speko failed to end: `0` normally, `null` on a repeat
+   * or when it could not read which calls were in progress. The number
+   * is disconnected either way.
+   */
+  callsNotEnded: number | null;
+}
