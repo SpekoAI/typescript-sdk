@@ -600,8 +600,18 @@ export interface RealtimeSessionHandle {
 export interface VoiceDialParams {
   /** Destination number in E.164 format (e.g. "+12015551234"). */
   to: string;
-  /** Caller ID. Falls back to the org default if omitted server-side. */
+  /**
+   * Caller ID. Falls back to the org default if omitted server-side. With
+   * `channel: 'whatsapp'`, one of the workspace's WhatsApp numbers; omitted,
+   * the WhatsApp number the agent answers.
+   */
   from?: string;
+  /**
+   * `'whatsapp'` calls `to` on WhatsApp instead of the phone network. The
+   * callee must have given your WhatsApp number permission to call them.
+   * Defaults to `'phone'`.
+   */
+  channel?: 'phone' | 'whatsapp';
   /** Persisted assistant to run for this call. When supplied, `intent` can be omitted. */
   agentId?: string;
   /** Routing intent — language is required, optimizeFor optional. */

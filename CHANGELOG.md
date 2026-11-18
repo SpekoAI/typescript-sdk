@@ -108,6 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `VoiceDialParams.channel` (`'phone' | 'whatsapp'`): `voice.dial({ channel: 'whatsapp' })`
+  calls the destination on WhatsApp from one of the workspace's WhatsApp numbers.
 - `speko.agents.tools.listChatTools(agentId)` — fetches an agent's registered
   tools and converts them into the `ChatTool[]` shape `complete()` accepts.
   Covers all four source kinds (`inline`, `webhook`, `builtin`, `integration`),
