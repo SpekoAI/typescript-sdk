@@ -694,6 +694,16 @@ export interface VoiceDialParams {
    */
   ringTimeoutSeconds?: number;
   /**
+   * The user's own phone, for a call placed on their behalf. When the other
+   * side asks for the account holder, the agent rings `to` and connects the
+   * user to the call (warm transfer). Calls without `agentId` only.
+   */
+  handoff?: {
+    to: string;
+    /** How the agent refers to the user, e.g. their first name. */
+    name?: string;
+  };
+  /**
    * Optional per-call turn-taking overrides. `greetFirst` defaults ON for
    * outbound (worker-side, 2026-07-03): the greeting plays immediately while
    * AMD classifies in the background. Pass false to hold the greeting for the
