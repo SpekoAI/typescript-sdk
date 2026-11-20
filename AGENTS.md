@@ -4,7 +4,7 @@ Guidance for AI coding agents working with `@spekoai/sdk`.
 
 ## What this is
 
-`@spekoai/sdk` is the official TypeScript SDK for [Speko](https://speko.ai), an OpenRouter-style gateway for voice AI: one API that routes STT, LLM, and TTS requests across every major voice provider (10+ languages), with benchmark-driven provider selection and automatic failover. Full voice stack: speech-to-text, text-to-speech, and LLM completion behind a single typed client.
+`@spekoai/sdk` is the official TypeScript SDK for [Speko](https://speko.com), a voice agent platform for business phone calls. It builds AI phone agents, manages phone numbers, places calls, sends SMS, and runs speech-to-text, LLM and text-to-speech, with STT, LLM and TTS routed on numbers from the public benchmark at speko.com/benchmarks. Full voice stack: speech-to-text, text-to-speech, and LLM completion behind a single typed client.
 
 ## Install
 
@@ -31,9 +31,9 @@ Sign up at [platform.speko.dev](https://platform.speko.dev), mint a key at [plat
 
 ## Agent resources
 
-- Machine-readable docs index: <https://docs.speko.dev/llms.txt> (full corpus: <https://docs.speko.dev/llms-full.txt>)
+- Machine-readable docs index: <https://docs.speko.ai/llms.txt> (full corpus: <https://docs.speko.ai/llms-full.txt>)
 - Hosted MCP server: `https://mcp.speko.ai/mcp` (Platform API key). One-command setup for Claude Code, Codex, OpenCode, and Cursor: `npx @spekoai/mcp@latest init`
-- Full documentation: <https://docs.speko.dev>
+- Full documentation: <https://docs.speko.ai>
 - README in this repo covers tool calling and client options in more depth.
 
 ## Repo notes

@@ -1,10 +1,10 @@
 {
   "name": "@spekoai/sdk",
   "version": "0.5.9",
-  "description": "Official Speko TypeScript SDK — one API, every voice provider",
+  "description": "Official TypeScript SDK for Speko: build AI phone agents, manage phone numbers, place calls, send SMS, and run speech-to-text, LLM and text-to-speech.",
   "license": "MIT",
   "author": "Speko",
-  "homepage": "https://github.com/SpekoAI/typescript-sdk#readme",
+  "homepage": "https://speko.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/SpekoAI/typescript-sdk.git"
@@ -17,6 +17,9 @@
     "spekoai",
     "voice-ai",
     "voice-agent",
+    "ai-phone-agent",
+    "phone-calls",
+    "sms",
     "sdk",
     "typescript",
     "stt",
@@ -27,13 +30,7 @@
     "llm",
     "llm-routing",
     "voice-routing",
-    "failover",
-    "fallback",
-    "multilingual",
-    "elevenlabs",
-    "deepgram",
-    "cartesia",
-    "openrouter"
+    "multilingual"
   ],
   "type": "module",
   "main": "./dist/index.js",

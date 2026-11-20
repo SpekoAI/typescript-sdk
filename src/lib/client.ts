@@ -34,7 +34,8 @@ const DEFAULT_BASE_URL = 'https://api.speko.dev';
 const DEFAULT_TIMEOUT = 30_000;
 
 /**
- * Speko client — one API, every voice provider.
+ * Speko client: build AI phone agents, manage phone numbers, place calls, send
+ * SMS, and run speech-to-text, LLM and text-to-speech.
  *
  * @example
  * ```ts

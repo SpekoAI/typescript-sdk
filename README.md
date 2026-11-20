@@ -1,11 +1,15 @@
 # @spekoai/sdk
 
-Official TypeScript SDK for [Speko](https://speko.ai) — one API, every voice provider.
+Speko is a voice agent platform for business phone calls: teams build, test, run and monitor AI phone agents for scripted calls such as interviews, candidate screens and intake. It routes STT, LLM and TTS on numbers from the public benchmark at speko.com/benchmarks. Speko is based in San Francisco and is a Y Combinator S26 company.
 
-Speko is a voice AI gateway that benchmarks every STT, LLM, and TTS provider
-across languages, then routes each request to the best provider in real
-time. Failover is handled. You write one integration; Speko picks the
-right provider for every call.
+`@spekoai/sdk` is the official TypeScript SDK for Speko: build AI phone agents, manage phone numbers, place calls, send SMS, and run speech-to-text, LLM and text-to-speech.
+
+| | |
+|---|---|
+| Install | `npm install @spekoai/sdk` |
+| Docs | https://docs.speko.ai/sdk |
+| Site | https://speko.com |
+| Benchmarks | https://speko.com/benchmarks |
 
 ## Installation
 
@@ -23,19 +27,19 @@ import { readFile } from 'node:fs/promises';
 
 const speko = new Speko({ apiKey: process.env.SPEKO_API_KEY });
 
-// Transcribe — best STT provider auto-routed for your language
+// Transcribe: best STT provider auto-routed for your language
 const audio = await readFile('./call.wav');
 const { text, provider, confidence } = await speko.transcribe(audio, {
   language: 'es-MX',
-  region: 'us-east4', // optional — rank streaming providers in this region
+  region: 'us-east4', // optional: rank streaming providers in this region
 });
 
-// Synthesize — best TTS provider auto-routed
+// Synthesize: best TTS provider auto-routed
 const speech = await speko.synthesize('Hello world', {
   language: 'en',
 });
 
-// Complete — best LLM provider auto-routed
+// Complete: best LLM provider auto-routed
 const { text: reply } = await speko.complete({
   messages: [{ role: 'user', content: 'Hi!' }],
   intent: { language: 'en' },
@@ -45,7 +49,7 @@ const { text: reply } = await speko.complete({
 // speko.transcribeStream(...), speko.synthesizeStream(...), speko.completeStream(...)
 ```
 
-> The client accepts `baseURL` as an alias for `baseUrl` — e.g.
+> The client accepts `baseURL` as an alias for `baseUrl`, e.g.
 > `new Speko({ apiKey, baseURL: process.env.SPEKO_BASE_URL })`. If both are set,
 > `baseUrl` wins.
 
@@ -54,7 +58,7 @@ const { text: reply } = await speko.complete({
 Tools registered against an agent (via `speko.agents.tools.create(...)` or the
 dashboard) can be loaded and handed straight to `complete()`.
 `listChatTools(agentId)` fetches the agent's tools and converts every source
-kind — `inline`, `webhook`, `builtin`, and `integration` — into the
+kind (`inline`, `webhook`, `builtin`, and `integration`) into the
 `ChatTool[]` shape `complete()` expects:
 
 ```ts
@@ -78,8 +82,8 @@ the response; inline tools come back to you as `toolCalls` to execute yourself.
 
 ## Programmable voice (call control)
 
-`speko.callControl` drives **human** calls — on a browser softphone,
-phones on the PSTN — the way Telnyx Call Control does. Every leg of a call has
+`speko.callControl` drives **human** calls (on a browser softphone,
+phones on the PSTN) the way Telnyx Call Control does. Every leg of a call has
 an opaque `controlId`, and every verb is addressed to that handle, so a Telnyx
 integration ports one command to one command.
 
@@ -91,11 +95,11 @@ import { PRESENCE_STALE_AFTER_MS } from '@spekoai/sdk';
 const speko = new Speko({ apiKey: process.env.SPEKO_API_KEY, brokerId: 'broker-42' });
 
 await speko.callControl.register();
-const presence = await speko.callControl.presenceToken(); // → { token, url, ... }
+const presence = await speko.callControl.presenceToken(); // -> { token, url, ... }
 setInterval(() => speko.callControl.heartbeat(), PRESENCE_STALE_AFTER_MS / 3);
 
 // Dial out. The call comes back with its legs attached, plus the room
-// credentials for your own browser leg — you must be in the room before the far
+// credentials for your own browser leg: you must be in the room before the far
 // end answers, or the first moments are silent.
 const { call, join } = await speko.callControl.dial({ to: '+12015551234' });
 const mine = call.legs.find((leg) => leg.kind === 'browser')!;
@@ -104,7 +108,7 @@ const theirs = call.legs.find((leg) => leg.kind === 'pstn')!;
 // VoiceConversation.create({ transportToken: join.token, transportUrl: join.url })
 
 await speko.callControl.mute(mine.controlId);
-// DTMF is addressed to the leg the tones are *for* — the customer's PSTN leg.
+// DTMF is addressed to the leg the tones are *for*: the customer's PSTN leg.
 // (Speko relays them out through an in-room browser leg, because only a
 // participant inside the room can publish SIP DTMF, but that's internal:
 // naming a non-PSTN leg fails with UNSUPPORTED_COMMAND.)
@@ -130,11 +134,11 @@ if (message.type === 'incoming_call') {
 ```
 
 The full verb set is `answer`, `hangup`, `bridge`, `hold`, `unhold`, `mute`,
-`unmute`, `dtmf`, `transfer` — each resolving to the leg's post-command state,
+`unmute`, `dtmf`, `transfer`, each resolving to the leg's post-command state,
 so you never re-read to find out what you just did. `get`, `list`, and `events`
 read calls back; `events` is the recorded equivalent of the Telnyx webhook
 stream. The same events can be delivered as workspace webhooks (`call.initiated`
-… `call.hangup`); those are sent once, without automatic retry, so treat
+... `call.hangup`); those are sent once, without automatic retry, so treat
 `events` as the durable record and reconcile from it.
 
 ### Broker identity
@@ -144,8 +148,8 @@ The API key authenticates the organization. `brokerId`, supplied once to
 automatically on `dial`, `join`, `register`, `heartbeat`, `setStatus`, and
 `presenceToken`.
 
-The command surface — `answer`, `hangup`, `hold`/`unhold`, `mute`/`unmute`,
-`dtmf`, `bridge`, `transfer`, plus `get`, `list`, `events` — accepts API keys on
+The command surface (`answer`, `hangup`, `hold`/`unhold`, `mute`/`unmute`,
+`dtmf`, `bridge`, `transfer`, plus `get`, `list`, `events`) accepts API keys on
 purpose: server-side automation acting on a live call is the point of a
 programmable-voice API, and those are scoped by the leg's organization.
 
@@ -153,7 +157,7 @@ Two things differ from Telnyx and will bite if you assume otherwise:
 
 - **`hold` is silent.** It is synthesized from mute + unsubscribe; with no
   music-on-hold source configured the held party hears nothing at all. Say so in
-  your UI — callers read silence as a dropped call.
+  your UI: callers read silence as a dropped call.
 - **There is no SIP registrar.** Desk phones, third-party softphones, and other
   PBXes cannot register and be rung. Human legs are browser legs; `browser` and
   `pstn` are the only human-reachable leg kinds.
@@ -177,7 +181,7 @@ const { token, url } = await speko.calls.listen(sessionId);
 The token can join the call and receive its audio. It cannot publish audio or
 data, and nobody on the call can see the listener. The token is accepted for 60
 seconds, and a call takes five listeners at most. See the
-[Listen to live calls guide](https://docs.speko.dev/guides/listen-to-live-calls).
+[Listen to live calls guide](https://docs.speko.ai/guides/listen-to-live-calls).
 
 ## WhatsApp calls through your own Meta app
 
@@ -199,11 +203,11 @@ Set `webhookUrl` and `verifyToken` on your Meta app's WhatsApp webhook and
 subscribe it to the `calls` field. `speko.whatsapp.listNumbers()` shows both
 again, `updateNumber(id, { agentId })` changes the agent, and
 `disconnect(connectionId)` deletes the stored secrets. See the
-[WhatsApp guide](https://docs.speko.dev/whatsapp).
+[WhatsApp guide](https://docs.speko.ai/whatsapp).
 
 ## Documentation
 
-Full API reference and guides: <https://docs.speko.dev>
+Full API reference and guides: <https://docs.speko.ai/sdk>
 
 ## Contributing
 
